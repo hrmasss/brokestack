@@ -1,0 +1,30 @@
+{
+  "name": "brokestack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SaaS workspace for automation, utility APIs, scraping, and AI-powered tools",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "predev": "node scripts/free-dev-ports.mjs 8080 5173",
+    "dev": "pnpm run predev && concurrently -k -n api,web -c blue,green \"pnpm run dev:api\" \"pnpm run dev:web\"",
+    "dev:all": "pnpm run predev && concurrently -k -n api,web,worker -c blue,green,yellow \"pnpm run dev:api\" \"pnpm run dev:web\" \"pnpm run dev:worker\"",
+    "dev:api": "cd apps/api && go run ./cmd/server",
+    "dev:web": "pnpm --dir apps/web dev",
+    "dev:worker": "cd apps/worker && python -m uvicorn brokestack_worker.main:app --reload --host 127.0.0.1 --port 8091",
+    "build": "pnpm run build:api && pnpm run build:web",
+    "build:api": "cd apps/api && go build -o ../../bin/api ./cmd/server",
+    "build:web": "pnpm --dir apps/web build",
+    "build:worker": "cd apps/worker && python -m compileall brokestack_worker",
+    "lint": "pnpm run lint:web",
+    "lint:web": "pnpm --dir apps/web lint",
+    "format": "pnpm --dir apps/web format",
+    "typecheck": "pnpm --dir apps/web typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@10.17.1"
+}

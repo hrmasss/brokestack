@@ -1,0 +1,149 @@
+openapi: 3.1.0
+info:
+  title: BrokeStack API
+  version: 0.1.0
+  description: |
+    BrokeStack is a multi-tenant platform for automation, utility APIs,
+    scraping workflows, AI-assisted tools, and operator-managed workspaces.
+    
+    ## Platform Areas
+    - Customer workspaces and API access
+    - Tool execution and job orchestration
+    - Admin and support operations
+    - Authentication, tenancy, and permissions
+    - Future Python worker integration for long-running tasks
+    
+    ## Authentication
+    Most endpoints require authentication via Bearer token in the Authorization header.
+  contact:
+    name: BrokeStack API Support
+    email: api@brokestack.app
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: https://api.brokestack.app
+    description: Production server (future)
+
+tags:
+  - name: Health
+    description: Health check and status endpoints
+  - name: Auth
+    description: Authentication and authorization
+  - name: Workspaces
+    description: Multi-tenant workspace management
+  - name: Jobs
+    description: Tool execution and background run lifecycle
+  - name: Tooling
+    description: Tool catalog, usage, and future worker integration
+  - name: Platform
+    description: Admin and workspace platform capabilities
+
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Health Check
+      description: Returns the health status of the API including uptime and system information.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                timestamp: "2026-03-06T12:00:00Z"
+                uptime: "2h30m15s"
+                version: "0.1.0"
+                go:
+                  version: "go1.24"
+                  os: "darwin"
+                  arch: "arm64"
+                  num_cpu: 10
+                  goroutines: 8
+                checks:
+                  api: "ok"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT authentication token
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall health status
+        timestamp:
+          type: string
+          format: date-time
+          description: Current server timestamp
+        uptime:
+          type: string
+          description: Server uptime duration
+        version:
+          type: string
+          description: API version
+        go:
+          $ref: '#/components/schemas/GoInfo'
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+          description: Individual service health checks
+
+    GoInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          description: Go runtime version
+        os:
+          type: string
+          description: Operating system
+        arch:
+          type: string
+          description: CPU architecture
+        num_cpu:
+          type: integer
+          description: Number of CPUs
+        goroutines:
+          type: integer
+          description: Active goroutines count
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: boolean
+          example: true
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code for programmatic handling
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details

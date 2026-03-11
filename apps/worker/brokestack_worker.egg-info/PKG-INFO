@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: brokestack-worker
+Version: 0.1.0
+Summary: Python execution worker for BrokeStack tools, workflows, and scheduled jobs
+Requires-Python: >=3.11
+Requires-Dist: fastapi<1.0.0,>=0.116.0
+Requires-Dist: uvicorn<1.0.0,>=0.35.0
+Requires-Dist: pydantic<3.0.0,>=2.11.0
