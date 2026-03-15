@@ -58,7 +58,50 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
             session = type(
                 "Session",
                 (),
-                {"context": type("Context", (), {"download_dir": download_dir})()},
+                {
+                    "context": type(
+                        "Context",
+                        (),
+                        {"download_dir": download_dir, "final_output_dir": download_dir},
+                    )(),
+                    "outputs": [],
+                },
+            )()
+            self.assertTrue(adapter._downloads_finished(session))
+
+    def test_downloads_finished_when_files_already_moved_to_final_output_dir(self) -> None:
+        settings = WorkerSettings(
+            worker_shared_secret="secret",
+            api_base_url="http://localhost:8080",
+            browser_state_dir=Path(".tmp/browser-state"),
+            outputs_dir=Path(".tmp/storage/outputs"),
+            chrome_binary_path=None,
+            chrome_headless=True,
+            chatgpt_base_url="https://chatgpt.com",
+            login_timeout_seconds=10,
+            run_timeout_seconds=10,
+            login_stable_polls=1,
+            dom_poll_interval_seconds=0.5,
+        )
+        adapter = ChatGPTProviderAdapter(settings)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            staging_dir = Path(temp_dir) / "staging"
+            final_dir = Path(temp_dir) / "final"
+            staging_dir.mkdir(parents=True, exist_ok=True)
+            final_dir.mkdir(parents=True, exist_ok=True)
+            (final_dir / "content").write_bytes(b"image")
+            session = type(
+                "Session",
+                (),
+                {
+                    "context": type(
+                        "Context",
+                        (),
+                        {"download_dir": staging_dir, "final_output_dir": final_dir},
+                    )(),
+                    "outputs": [object()],
+                },
             )()
             self.assertTrue(adapter._downloads_finished(session))
 

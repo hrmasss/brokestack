@@ -17,6 +17,7 @@ import undetected_chromedriver as uc
 from PIL import Image
 from selenium.common.exceptions import NoSuchElementException, SessionNotCreatedException, WebDriverException
 from selenium.webdriver import Chrome
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
@@ -319,6 +320,7 @@ class ChatGPTProviderAdapter:
         return RunProgressSnapshot(
             status="downloading",
             message="Waiting for downloaded files to finish writing.",
+            outputs=new_outputs,
             provider_thread_url=session.thread_url,
             provider_thread_id=session.thread_id,
         )
@@ -369,16 +371,24 @@ class ChatGPTProviderAdapter:
         if chrome_major_version is not None:
             chrome_kwargs["version_main"] = chrome_major_version
 
-        try:
-            driver = uc.Chrome(**chrome_kwargs)
-        except SessionNotCreatedException as exc:
-            details = []
-            if chrome_binary_path:
-                details.append(f"binary={chrome_binary_path}")
-            if chrome_major_version is not None:
-                details.append(f"major={chrome_major_version}")
-            detail_suffix = f" ({', '.join(details)})" if details else ""
-            raise RuntimeError(f"Unable to start Chrome for ChatGPT automation{detail_suffix}: {exc.msg}") from exc
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                driver = uc.Chrome(**chrome_kwargs)
+                break
+            except SessionNotCreatedException as exc:
+                last_error = exc
+                if attempt == 2:
+                    details = []
+                    if chrome_binary_path:
+                        details.append(f"binary={chrome_binary_path}")
+                    if chrome_major_version is not None:
+                        details.append(f"major={chrome_major_version}")
+                    detail_suffix = f" ({', '.join(details)})" if details else ""
+                    raise RuntimeError(f"Unable to start Chrome for ChatGPT automation{detail_suffix}: {exc.msg}") from exc
+                time.sleep(2)
+        else:
+            raise RuntimeError(f"Unable to start Chrome for ChatGPT automation: {last_error}")
         driver.set_page_load_timeout(60)
         if download_dir is not None:
             try:
@@ -452,7 +462,7 @@ class ChatGPTProviderAdapter:
                 session.failed_message = "Unable to focus the ChatGPT prompt composer."
                 self._write_debug_artifacts(session, "prompt-focus-failed")
                 return False
-            prompt_element.send_keys(prompt)
+            self._type_prompt_text(session.driver, prompt_element, prompt)
             prompt_element.send_keys(Keys.ENTER)
             return True
         except WebDriverException as exc:
@@ -482,6 +492,19 @@ class ChatGPTProviderAdapter:
             time.sleep(0.2)
         except WebDriverException:
             return
+
+    def _type_prompt_text(self, driver: Chrome, prompt_element, prompt: str) -> None:
+        lines = prompt.splitlines()
+        if not lines:
+            lines = [prompt]
+
+        actions = ActionChains(driver)
+        for index, line in enumerate(lines):
+            if line:
+                actions.send_keys_to_element(prompt_element, line)
+            if index < len(lines) - 1:
+                actions.key_down(Keys.SHIFT).send_keys_to_element(prompt_element, Keys.ENTER).key_up(Keys.SHIFT)
+        actions.perform()
 
     def _build_prompt(self, prompt_text: str, config: dict) -> str:
         parts = [prompt_text.strip()]
@@ -563,7 +586,14 @@ class ChatGPTProviderAdapter:
 
     def _downloads_finished(self, session: ActiveRunSession) -> bool:
         partials = list(session.context.download_dir.glob("*.crdownload"))
-        return not partials and any(session.context.download_dir.iterdir())
+        if partials:
+            return False
+        if session.outputs:
+            return True
+        try:
+            return any(session.context.download_dir.iterdir()) or any(session.context.final_output_dir.iterdir())
+        except FileNotFoundError:
+            return False
 
     def _collect_outputs(self, session: ActiveRunSession) -> list[WorkerOutputPayload]:
         outputs: list[WorkerOutputPayload] = []

@@ -57,7 +57,8 @@ type WorkerConfig struct {
 
 // StorageConfig holds local filesystem storage settings.
 type StorageConfig struct {
-	RootDir string
+	RootDir          string
+	WorkerOutputsDir string
 }
 
 // Load reads configuration from environment variables
@@ -93,7 +94,8 @@ func Load() *Config {
 			Timeout:      getEnvDuration("WORKER_REQUEST_TIMEOUT", 30*time.Second),
 		},
 		Storage: StorageConfig{
-			RootDir: getEnv("STORAGE_ROOT_DIR", ".tmp/storage"),
+			RootDir:          getEnv("STORAGE_ROOT_DIR", ".tmp/storage"),
+			WorkerOutputsDir: getEnv("WORKER_OUTPUTS_DIR", "apps/worker/.tmp/storage/outputs"),
 		},
 	}
 }

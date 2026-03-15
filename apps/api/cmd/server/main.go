@@ -23,6 +23,9 @@ import (
 func main() {
 	// Load .env from root directory
 	rootDir := findRootDir()
+	if err := os.Chdir(rootDir); err != nil {
+		log.Fatalf("Failed to switch to project root: %v", err)
+	}
 	if err := godotenv.Load(filepath.Join(rootDir, ".env")); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}

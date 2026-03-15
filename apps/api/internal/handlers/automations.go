@@ -312,27 +312,39 @@ func (h *AppHandler) handleWorkerRunEvent(c fiber.Ctx) error {
 }
 
 func (h *AppHandler) resolveOutputPath(storagePath string) (string, error) {
-	base := strings.TrimSpace(h.cfg.Storage.RootDir)
-	if base == "" {
-		base = "."
+	resolved := storagePath
+	primaryBase := strings.TrimSpace(h.cfg.Storage.RootDir)
+	if primaryBase == "" {
+		primaryBase = "."
 	}
-	baseAbs, err := filepath.Abs(base)
+	primaryBaseAbs, err := filepath.Abs(primaryBase)
 	if err != nil {
 		return "", err
 	}
 
-	resolved := storagePath
 	if !filepath.IsAbs(resolved) {
-		resolved = filepath.Join(baseAbs, resolved)
+		resolved = filepath.Join(primaryBaseAbs, resolved)
 	}
 	resolvedAbs, err := filepath.Abs(resolved)
 	if err != nil {
 		return "", err
 	}
-	if resolvedAbs != baseAbs && !strings.HasPrefix(resolvedAbs, baseAbs+string(os.PathSeparator)) {
-		return "", iam.ErrForbidden
+
+	allowedBases := []string{primaryBaseAbs}
+	if workerOutputsBase := strings.TrimSpace(h.cfg.Storage.WorkerOutputsDir); workerOutputsBase != "" {
+		workerOutputsAbs, err := filepath.Abs(workerOutputsBase)
+		if err != nil {
+			return "", err
+		}
+		allowedBases = append(allowedBases, workerOutputsAbs)
 	}
-	return resolvedAbs, nil
+
+	for _, baseAbs := range allowedBases {
+		if resolvedAbs == baseAbs || strings.HasPrefix(resolvedAbs, baseAbs+string(os.PathSeparator)) {
+			return resolvedAbs, nil
+		}
+	}
+	return "", iam.ErrForbidden
 }
 
 func mustParseID(value string) uuid.UUID {

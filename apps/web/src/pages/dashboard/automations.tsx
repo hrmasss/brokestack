@@ -100,6 +100,9 @@ export function DashboardAutomations() {
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	const [outputs, setOutputs] = useState<AutomationRunOutput[]>([]);
 	const [outputUrls, setOutputUrls] = useState<Record<string, string>>({});
+	const [outputLoadStates, setOutputLoadStates] = useState<
+		Record<string, "loading" | "ready" | "failed">
+	>({});
 	const outputUrlsRef = useRef<Record<string, string>>({});
 	const [activeLoginSession, setActiveLoginSession] =
 		useState<ProviderLoginSession | null>(null);
@@ -249,14 +252,19 @@ export function DashboardAutomations() {
 			}
 			outputUrlsRef.current = {};
 			setOutputUrls({});
+			setOutputLoadStates({});
 			return;
 		}
 
 		const controller = new AbortController();
 		let cancelled = false;
+		setOutputLoadStates(
+			Object.fromEntries(outputs.map((output) => [output.id, "loading"])),
+		);
 
 		void (async () => {
 			const nextUrls: Record<string, string> = {};
+			const nextStates: Record<string, "loading" | "ready" | "failed"> = {};
 			for (const output of outputs) {
 				try {
 					const response = await fetch(`${apiBase}${output.contentUrl}`, {
@@ -265,11 +273,14 @@ export function DashboardAutomations() {
 						signal: controller.signal,
 					});
 					if (!response.ok) {
+						nextStates[output.id] = "failed";
 						continue;
 					}
 					const blob = await response.blob();
 					nextUrls[output.id] = URL.createObjectURL(blob);
+					nextStates[output.id] = "ready";
 				} catch {
+					nextStates[output.id] = "failed";
 					continue;
 				}
 			}
@@ -284,6 +295,7 @@ export function DashboardAutomations() {
 			}
 			outputUrlsRef.current = nextUrls;
 			setOutputUrls(nextUrls);
+			setOutputLoadStates(nextStates);
 		})();
 
 		return () => {
@@ -954,6 +966,11 @@ export function DashboardAutomations() {
 															className="h-full w-full object-cover"
 														/>
 													</a>
+												) : outputLoadStates[output.id] === "failed" ? (
+													<div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground">
+														<ImageIcon className="size-5" />
+														<span>Preview unavailable</span>
+													</div>
 												) : (
 													<div className="flex h-full items-center justify-center text-muted-foreground">
 														<LoaderCircle className="size-5 animate-spin" />
