@@ -1,5 +1,6 @@
 export const SITE_NAME = "BrokeStack";
-export const SITE_URL = "https://brokestack.app";
+export const SITE_URL =
+	import.meta.env.VITE_SITE_URL?.trim() || "https://brokestack.app";
 export const SITE_IMAGE = `${SITE_URL}/branding/heimdall-icon-512.png`;
 
 export type RouteSeo = {

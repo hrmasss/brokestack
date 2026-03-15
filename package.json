@@ -11,6 +11,9 @@
     "dev:api": "cd apps/api && go run ./cmd/server",
     "dev:web": "pnpm --dir apps/web dev",
     "dev:worker": "cd apps/worker && python -m uvicorn brokestack_worker.main:app --reload --host 127.0.0.1 --port 8091",
+    "db:migrate": "cd apps/api && go run ./cmd/server migrate",
+    "seed-system": "cd apps/api && go run ./cmd/server seed-system",
+    "healthcheck": "cd apps/api && go run ./cmd/server healthcheck",
     "build": "pnpm run build:api && pnpm run build:web",
     "build:api": "cd apps/api && go build -o ../../bin/api ./cmd/server",
     "build:web": "pnpm --dir apps/web build",
@@ -18,7 +21,8 @@
     "lint": "pnpm run lint:web",
     "lint:web": "pnpm --dir apps/web lint",
     "format": "pnpm --dir apps/web format",
-    "typecheck": "pnpm --dir apps/web typecheck"
+    "typecheck": "pnpm --dir apps/web typecheck",
+    "sync:production-secrets": "node scripts/sync-production-secrets.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -1,0 +1,15 @@
+.git
+.github
+.references
+.tmp
+node_modules
+bin
+dist
+build
+coverage
+apps/web/node_modules
+apps/web/dist
+apps/worker/.venv
+apps/worker/__pycache__
+apps/worker/tests/__pycache__
+*.log

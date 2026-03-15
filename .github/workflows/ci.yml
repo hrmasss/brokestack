@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: brokestack_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d brokestack_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/brokestack_ci?sslmode=disable
+      REDIS_URL: ""
+      GO_ENV: test
+      API_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+      WORKER_URL: http://127.0.0.1:8091
+      WORKER_API_BASE_URL: http://127.0.0.1:8080
+      WORKER_PUBLIC_BASE_URL: http://127.0.0.1:8091
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve diff range
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "BASE_SHA=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_ENV"
+          else
+            echo "BASE_SHA=${{ github.event.before }}" >> "$GITHUB_ENV"
+          fi
+          echo "HEAD_SHA=${{ github.sha }}" >> "$GITHUB_ENV"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install worker dependencies
+        run: python -m pip install -e apps/worker
+
+      - name: Install Atlas
+        run: |
+          curl -fsSL https://atlasbinaries.com/atlas/atlas-linux-amd64-latest -o /usr/local/bin/atlas
+          chmod +x /usr/local/bin/atlas
+          atlas version
+
+      - name: Migration drift check
+        run: node scripts/check-migration-drift.mjs "$BASE_SHA" "$HEAD_SHA"
+
+      - name: Validate migration directory integrity
+        run: atlas migrate validate --dir file://db/migrations
+
+      - name: Apply migrations to fresh database
+        run: atlas migrate apply --dir file://db/migrations --url "$DATABASE_URL" --tx-mode file --exec-order linear
+
+      - name: Seed system data
+        run: go run ./cmd/server seed-system
+        working-directory: apps/api
+
+      - name: Compatibility smoke check
+        run: go run ./cmd/server healthcheck
+        working-directory: apps/api
+
+      - name: Run Go tests
+        run: go test ./...
+        working-directory: apps/api
+
+      - name: Run worker tests
+        run: python -m unittest discover -s apps/worker/tests -v
+
+      - name: Build worker package
+        run: python -m compileall apps/worker/brokestack_worker
+
+      - name: Typecheck frontend
+        run: pnpm --dir apps/web typecheck
+
+      - name: Build frontend
+        env:
+          VITE_API_URL: https://api.memofi.tech
+          VITE_SITE_URL: https://memofi.tech
+          VITE_APP_NAME: BrokeStack
+        run: pnpm --dir apps/web build
+
+      - name: Build production image
+        run: docker build .

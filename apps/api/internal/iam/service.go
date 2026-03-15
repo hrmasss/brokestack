@@ -132,8 +132,13 @@ func NewService(db *bun.DB, cfg *config.Config) *Service {
 	return &Service{db: db, cfg: cfg}
 }
 
-func (s *Service) Bootstrap(ctx context.Context) error {
-	return database.Bootstrap(ctx, s.db, s.cfg)
+func (s *Service) SeedSystem(ctx context.Context) error {
+	return database.SeedSystem(ctx, s.db, s.cfg)
+}
+
+func (s *Service) CheckHealth(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, "SELECT 1")
+	return err
 }
 
 func (s *Service) BuildPrincipal(token string) (*Principal, error) {

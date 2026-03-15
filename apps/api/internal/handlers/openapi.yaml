@@ -25,8 +25,8 @@ info:
 servers:
   - url: http://localhost:8080
     description: Local development server
-  - url: https://api.brokestack.app
-    description: Production server (future)
+  - url: https://api.memofi.tech
+    description: Production server
 
 tags:
   - name: Health

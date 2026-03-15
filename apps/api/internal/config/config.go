@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type Config struct {
 	Environment string
 	API         APIConfig
 	Database    DatabaseConfig
+	Redis       RedisConfig
 	Auth        AuthConfig
 	Bootstrap   BootstrapConfig
 	Worker      WorkerConfig
@@ -19,9 +21,10 @@ type Config struct {
 
 // APIConfig holds API server configuration
 type APIConfig struct {
-	Host   string
-	Port   string
-	Prefix string
+	Host           string
+	Port           string
+	Prefix         string
+	AllowedOrigins []string
 }
 
 // DatabaseConfig holds database configuration
@@ -29,6 +32,11 @@ type DatabaseConfig struct {
 	URL            string
 	MaxConnections int
 	MaxIdleConns   int
+}
+
+// RedisConfig holds Redis configuration.
+type RedisConfig struct {
+	URL string
 }
 
 // AuthConfig holds authentication settings.
@@ -66,14 +74,18 @@ func Load() *Config {
 	return &Config{
 		Environment: getEnv("GO_ENV", "development"),
 		API: APIConfig{
-			Host:   getEnv("API_HOST", "localhost"),
-			Port:   getEnv("API_PORT", "8080"),
-			Prefix: getEnv("API_PREFIX", "/api/v1"),
+			Host:           getEnv("API_HOST", "localhost"),
+			Port:           getEnv("API_PORT", "8080"),
+			Prefix:         getEnv("API_PREFIX", "/api/v1"),
+			AllowedOrigins: getEnvCSV("API_ALLOWED_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000"}),
 		},
 		Database: DatabaseConfig{
 			URL:            getEnv("DATABASE_URL", "postgres://brokestack:brokestack@localhost:5432/brokestack?sslmode=disable"),
 			MaxConnections: getEnvInt("DATABASE_MAX_CONNECTIONS", 25),
 			MaxIdleConns:   getEnvInt("DATABASE_MAX_IDLE_CONNECTIONS", 5),
+		},
+		Redis: RedisConfig{
+			URL: getEnv("REDIS_URL", ""),
 		},
 		Auth: AuthConfig{
 			JWTSecret:          getEnv("JWT_SECRET", "brokestack-local-dev-secret"),
@@ -134,4 +146,23 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 		}
 	}
 	return defaultValue
+}
+
+func getEnvCSV(key string, defaultValue []string) []string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	result := make([]string, 0)
+	for _, item := range strings.Split(value, ",") {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	if len(result) == 0 {
+		return defaultValue
+	}
+	return result
 }
