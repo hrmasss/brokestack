@@ -49,7 +49,24 @@ class StartLoginSessionRequest(BaseModel):
 
 class StartLoginSessionResponse(BaseModel):
     worker_session_id: str = Field(alias="workerSessionId")
+    browser_instance_id: str = Field(alias="browserInstanceId")
     status: str
+    session_status: str = Field(alias="sessionStatus")
+    stream_session_token: str = Field(alias="streamSessionToken")
+    stream_url: str = Field(alias="streamUrl")
+    runtime_type: str = Field(alias="runtimeType")
+    profile_mount_path: str = Field(alias="profileMountPath")
+    region: str = ""
+    node_name: str = Field(default="", alias="nodeName")
+
+
+class RefreshLoginSessionStreamRequest(BaseModel):
+    worker_session_id: str = Field(alias="workerSessionId")
+
+
+class RefreshLoginSessionStreamResponse(BaseModel):
+    stream_session_token: str = Field(alias="streamSessionToken")
+    stream_url: str = Field(alias="streamUrl")
 
 
 class StartAutomationRunRequest(BaseModel):
@@ -87,8 +104,18 @@ class WorkerEvent(BaseModel):
     login_session_id: str | None = Field(default=None, alias="loginSessionId")
     run_id: str | None = Field(default=None, alias="runId")
     worker_run_id: str | None = Field(default=None, alias="workerRunId")
+    browser_instance_id: str | None = Field(default=None, alias="browserInstanceId")
     status: str | None = None
+    session_status: str | None = Field(default=None, alias="sessionStatus")
+    connection_mode: str | None = Field(default=None, alias="connectionMode")
     message: str | None = None
+    stream_session_token: str | None = Field(default=None, alias="streamSessionToken")
+    stream_url: str | None = Field(default=None, alias="streamUrl")
+    fallback_required: bool | None = Field(default=None, alias="fallbackRequired")
+    runtime_type: str | None = Field(default=None, alias="runtimeType")
+    profile_mount_path: str | None = Field(default=None, alias="profileMountPath")
+    region: str | None = None
+    node_name: str | None = Field(default=None, alias="nodeName")
     provider_thread_url: str | None = Field(default=None, alias="providerThreadUrl")
     provider_thread_id: str | None = Field(default=None, alias="providerThreadId")
     output: WorkerOutputPayload | None = None

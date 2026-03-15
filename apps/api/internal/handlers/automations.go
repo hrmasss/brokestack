@@ -94,12 +94,31 @@ func (h *AppHandler) startProviderLoginSession(c fiber.Ctx) error {
 		return h.writeError(c, fmt.Errorf("%w: unable to start browser login session", err))
 	}
 
-	if err := h.service.SetProviderLoginSessionWorkerID(c.Context(), mustParseID(session.ID), workerResponse.WorkerSessionID); err != nil {
+	if err := h.service.SyncProviderLoginSessionWorkerState(
+		c.Context(),
+		mustParseID(session.ID),
+		workerResponse.WorkerSessionID,
+		workerResponse.BrowserInstanceID,
+		workerResponse.SessionStatus,
+		workerResponse.Status,
+		workerResponse.StreamSessionToken,
+		workerResponse.StreamURL,
+		workerResponse.ProfileMountPath,
+		workerResponse.RuntimeType,
+		workerResponse.Region,
+		workerResponse.NodeName,
+	); err != nil {
 		return h.writeError(c, err)
 	}
 	session.WorkerSessionID = workerResponse.WorkerSessionID
+	session.BrowserInstanceID = workerResponse.BrowserInstanceID
+	session.StreamSessionToken = workerResponse.StreamSessionToken
+	session.StreamURL = workerResponse.StreamURL
 	if workerResponse.Status != "" {
 		session.Status = workerResponse.Status
+	}
+	if workerResponse.SessionStatus != "" {
+		session.SessionStatus = workerResponse.SessionStatus
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(session)
@@ -123,6 +142,67 @@ func (h *AppHandler) getProviderLoginSession(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	return c.JSON(record)
+}
+
+func (h *AppHandler) refreshProviderLoginSessionStream(c fiber.Ctx) error {
+	accountID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	sessionID, err := uuid.Parse(c.Params("sessionId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	session, err := h.service.GetProviderLoginSession(c.Context(), principal, accountID, sessionID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	if strings.TrimSpace(session.WorkerSessionID) == "" {
+		return h.writeError(c, fmt.Errorf("%w: login session does not have an active worker browser session", iam.ErrConflict))
+	}
+	workerResponse, err := h.worker.RefreshLoginSessionStream(c.Context(), session.WorkerSessionID)
+	if err != nil {
+		return h.writeError(c, fmt.Errorf("%w: unable to refresh browser stream", err))
+	}
+	record, err := h.service.RefreshProviderLoginSessionStream(
+		c.Context(),
+		principal,
+		accountID,
+		sessionID,
+		workerResponse.StreamSessionToken,
+		workerResponse.StreamURL,
+	)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.JSON(record)
+}
+
+func (h *AppHandler) startProviderLoginLocalBridge(c fiber.Ctx) error {
+	accountID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	sessionID, err := uuid.Parse(c.Params("sessionId"))
+	if err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	principal, err := h.principal(c)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	bridge, session, err := h.service.StartLocalBridgeSession(c.Context(), principal, accountID, sessionID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"localBridgeSession": bridge,
+		"loginSession":       session,
+	})
 }
 
 func (h *AppHandler) createAutomation(c fiber.Ctx) error {
@@ -301,7 +381,25 @@ func (h *AppHandler) handleWorkerRunEvent(c fiber.Ctx) error {
 		})
 	}
 
-	var payload iam.WorkerRunEventPayload
+	var payload iam.WorkerEventPayload
+	if err := c.Bind().JSON(&payload); err != nil {
+		return h.writeError(c, iam.ErrValidation)
+	}
+	if err := h.service.HandleWorkerEvent(c.Context(), payload); err != nil {
+		return h.writeError(c, err)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+func (h *AppHandler) handleWorkerBrowserEvent(c fiber.Ctx) error {
+	if strings.TrimSpace(c.Get("X-Worker-Secret")) != h.cfg.Worker.SharedSecret {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   true,
+			"message": "unauthorized",
+		})
+	}
+
+	var payload iam.WorkerEventPayload
 	if err := c.Bind().JSON(&payload); err != nil {
 		return h.writeError(c, iam.ErrValidation)
 	}

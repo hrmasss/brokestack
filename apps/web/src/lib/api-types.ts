@@ -104,12 +104,30 @@ export type ProviderLoginSession = {
 	id: string;
 	providerAccountId: string;
 	workspaceId: string;
+	connectionMode: string;
+	sessionStatus: string;
 	status: string;
+	browserInstanceId?: string;
+	streamSessionToken?: string;
+	streamUrl?: string;
+	fallbackRequired: boolean;
 	workerSessionId?: string;
 	startedAt: string;
 	completedAt?: string;
 	expiresAt: string;
 	lastError?: string;
+};
+
+export type LocalBridgeSession = {
+	id: string;
+	providerLoginSessionId: string;
+	workspaceId: string;
+	status: string;
+	challengeToken: string;
+	connectedAt?: string;
+	completedAt?: string;
+	lastError?: string;
+	createdAt: string;
 };
 
 export type AutomationConfig = {

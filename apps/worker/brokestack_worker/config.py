@@ -36,6 +36,7 @@ def _get_float(name: str, default: float) -> float:
 class WorkerSettings:
     worker_shared_secret: str
     api_base_url: str
+    public_base_url: str
     browser_state_dir: Path
     outputs_dir: Path
     chrome_binary_path: str | None
@@ -53,6 +54,7 @@ def load_settings() -> WorkerSettings:
     return WorkerSettings(
         worker_shared_secret=os.getenv("WORKER_SHARED_SECRET", "brokestack-worker-local-secret"),
         api_base_url=os.getenv("WORKER_API_BASE_URL", "http://127.0.0.1:8080").rstrip("/"),
+        public_base_url=os.getenv("WORKER_PUBLIC_BASE_URL", "http://127.0.0.1:8091").rstrip("/"),
         browser_state_dir=browser_state_dir,
         outputs_dir=outputs_dir,
         chrome_binary_path=(os.getenv("WORKER_CHROME_BINARY") or "").strip() or None,

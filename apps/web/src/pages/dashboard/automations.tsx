@@ -31,6 +31,7 @@ import type {
 	Automation,
 	AutomationRun,
 	AutomationRunOutput,
+	LocalBridgeSession,
 	ProviderAccount,
 	ProviderLoginSession,
 } from "@/lib/api-types";
@@ -68,6 +69,17 @@ const runStatusStyles: Record<string, string> = {
 	downloading: "pill pill-info",
 };
 
+const loginSessionStatusStyles: Record<string, string> = {
+	launching: "pill pill-info",
+	ready_for_user: "pill pill-info",
+	auth_in_progress: "pill pill-warning",
+	ready: "pill pill-success",
+	failed:
+		"rounded-full border border-destructive/20 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive",
+	expired:
+		"rounded-full border border-destructive/20 bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive",
+};
+
 function resolveApiBase() {
 	const configuredBase = import.meta.env.VITE_API_URL?.trim();
 	if (import.meta.env.DEV) {
@@ -92,6 +104,18 @@ function formatDate(value?: string) {
 	}).format(new Date(value));
 }
 
+function isLoginSessionTerminal(session: ProviderLoginSession | null) {
+	if (!session) {
+		return true;
+	}
+	return (
+		session.sessionStatus === "ready" ||
+		session.sessionStatus === "failed" ||
+		session.sessionStatus === "expired" ||
+		Boolean(session.completedAt)
+	);
+}
+
 export function DashboardAutomations() {
 	const { activeWorkspaceId, customerRequest, customerSession } = useAuth();
 	const [accounts, setAccounts] = useState<ProviderAccount[]>([]);
@@ -106,6 +130,10 @@ export function DashboardAutomations() {
 	const outputUrlsRef = useRef<Record<string, string>>({});
 	const [activeLoginSession, setActiveLoginSession] =
 		useState<ProviderLoginSession | null>(null);
+	const [showLoginPanel, setShowLoginPanel] = useState(false);
+	const [localBridgeSession, setLocalBridgeSession] =
+		useState<LocalBridgeSession | null>(null);
+	const [startingLocalBridge, setStartingLocalBridge] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [submittingConnection, setSubmittingConnection] = useState(false);
@@ -121,6 +149,9 @@ export function DashboardAutomations() {
 	const [automationAspectRatio, setAutomationAspectRatio] = useState("");
 	const [selectedProviderAccountId, setSelectedProviderAccountId] =
 		useState("");
+	const loginStorageKey = activeWorkspaceId
+		? `brokestack:login-session:${activeWorkspaceId}`
+		: null;
 
 	const accountMap = useMemo(
 		() => new Map(accounts.map((account) => [account.id, account])),
@@ -133,7 +164,7 @@ export function DashboardAutomations() {
 	const selectedProviderAccount =
 		accountMap.get(selectedProviderAccountId) ?? null;
 	const isPolling =
-		Boolean(activeLoginSession && !activeLoginSession.completedAt) ||
+		Boolean(activeLoginSession && !isLoginSessionTerminal(activeLoginSession)) ||
 		runs.some((run) => activeRunStates.has(run.status));
 
 	async function loadWorkspaceData() {
@@ -203,6 +234,22 @@ export function DashboardAutomations() {
 	}, [activeWorkspaceId]);
 
 	useEffect(() => {
+		if (!loginStorageKey) {
+			return;
+		}
+		const stored = window.localStorage.getItem(loginStorageKey);
+		if (!stored) {
+			return;
+		}
+		try {
+			const session = JSON.parse(stored) as ProviderLoginSession;
+			setActiveLoginSession(session);
+		} catch {
+			window.localStorage.removeItem(loginStorageKey);
+		}
+	}, [loginStorageKey]);
+
+	useEffect(() => {
 		if (!selectedRunId) {
 			setOutputs([]);
 			return;
@@ -216,7 +263,7 @@ export function DashboardAutomations() {
 		if (!activeLoginSession) {
 			return;
 		}
-		if (activeLoginSession.completedAt) {
+		if (isLoginSessionTerminal(activeLoginSession)) {
 			return;
 		}
 		const interval = window.setInterval(() => {
@@ -225,11 +272,25 @@ export function DashboardAutomations() {
 				{ workspaceId: null },
 			).then((session) => {
 				setActiveLoginSession(session);
+				if (session.sessionStatus === "ready") {
+					setShowLoginPanel(false);
+				}
 				void loadWorkspaceData();
 			});
 		}, 3000);
 		return () => window.clearInterval(interval);
 	}, [activeLoginSession, customerRequest]);
+
+	useEffect(() => {
+		if (!loginStorageKey) {
+			return;
+		}
+		if (!activeLoginSession || isLoginSessionTerminal(activeLoginSession)) {
+			window.localStorage.removeItem(loginStorageKey);
+			return;
+		}
+		window.localStorage.setItem(loginStorageKey, JSON.stringify(activeLoginSession));
+	}, [activeLoginSession, loginStorageKey]);
 
 	useEffect(() => {
 		if (!isPolling || !activeWorkspaceId) {
@@ -345,6 +406,7 @@ export function DashboardAutomations() {
 	async function startLogin(accountId: string) {
 		setStartingLogin(accountId);
 		setError(null);
+		setLocalBridgeSession(null);
 		try {
 			const session = await customerRequest<ProviderLoginSession>(
 				`/provider-accounts/${accountId}/login-sessions`,
@@ -355,6 +417,7 @@ export function DashboardAutomations() {
 				},
 			);
 			setActiveLoginSession(session);
+			setShowLoginPanel(true);
 			await loadWorkspaceData();
 		} catch (loginError) {
 			const message =
@@ -363,11 +426,67 @@ export function DashboardAutomations() {
 					: "Unable to start the browser login flow.";
 			setError(
 				message.includes("status 409")
-					? "A browser login session is already active for this ChatGPT connection. Finish signing in through the open Chrome window instead of starting another one."
+					? "A browser login session is already active for this ChatGPT connection. Reopen the live connection panel instead of starting another one."
 					: message,
 			);
 		} finally {
 			setStartingLogin(null);
+		}
+	}
+
+	async function refreshLoginStream() {
+		if (!activeLoginSession) {
+			return;
+		}
+		setError(null);
+		try {
+			const session = await customerRequest<ProviderLoginSession>(
+				`/provider-accounts/${activeLoginSession.providerAccountId}/login-sessions/${activeLoginSession.id}/refresh-stream`,
+				{
+					method: "POST",
+					body: {},
+					workspaceId: null,
+				},
+			);
+			setActiveLoginSession(session);
+			setShowLoginPanel(true);
+		} catch (refreshError) {
+			setError(
+				refreshError instanceof Error
+					? refreshError.message
+					: "Unable to refresh the embedded browser stream.",
+			);
+		}
+	}
+
+	async function startLocalBridge() {
+		if (!activeLoginSession) {
+			return;
+		}
+		setStartingLocalBridge(true);
+		setError(null);
+		try {
+			const response = await customerRequest<{
+				localBridgeSession: LocalBridgeSession;
+				loginSession: ProviderLoginSession;
+			}>(
+				`/provider-accounts/${activeLoginSession.providerAccountId}/login-sessions/${activeLoginSession.id}/local-bridge`,
+				{
+					method: "POST",
+					body: {},
+					workspaceId: null,
+				},
+			);
+			setLocalBridgeSession(response.localBridgeSession);
+			setActiveLoginSession(response.loginSession);
+		} catch (bridgeError) {
+			setError(
+				bridgeError instanceof Error
+					? bridgeError.message
+					: "Unable to start the local-device bridge handoff.",
+			);
+		} finally {
+			setStartingLocalBridge(false);
 		}
 	}
 
@@ -467,28 +586,156 @@ export function DashboardAutomations() {
 				/>
 			) : null}
 
-			{activeLoginSession ? (
+			{activeLoginSession &&
+			!showLoginPanel &&
+			!isLoginSessionTerminal(activeLoginSession) ? (
+				<SurfaceCard tone="muted" className="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
+					<div className="space-y-1">
+						<div className="text-sm font-medium">Browser session still running</div>
+						<div className="text-sm text-muted-foreground">
+							The embedded connection flow is active for this workspace profile.
+						</div>
+					</div>
+					<Button
+						variant="outline"
+						className="rounded-full"
+						onClick={() => setShowLoginPanel(true)}
+					>
+						Resume browser session
+					</Button>
+				</SurfaceCard>
+			) : null}
+
+			{activeLoginSession && showLoginPanel ? (
 				<SurfaceCard tone="muted" className="p-5">
-					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-						<div className="space-y-1">
-							<div className="text-sm font-medium">Browser login session</div>
-							<div className="text-sm text-muted-foreground">
-								Status:{" "}
-								<span
-									className={
-										accountStatusStyles[activeLoginSession.status] ?? "pill"
-									}
-								>
-									{activeLoginSession.status.replaceAll("_", " ")}
-								</span>
+					<div className="space-y-5">
+						<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+							<div className="space-y-2">
+								<div className="text-sm font-medium">Embedded browser connection</div>
+								<div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+									<span
+										className={
+											loginSessionStatusStyles[activeLoginSession.sessionStatus] ??
+											"pill pill-info"
+										}
+									>
+										{activeLoginSession.sessionStatus.replaceAll("_", " ")}
+									</span>
+									<span
+										className={
+											accountStatusStyles[activeLoginSession.status] ?? "pill"
+										}
+									>
+										Account {activeLoginSession.status.replaceAll("_", " ")}
+									</span>
+									{activeLoginSession.connectionMode ? (
+										<span className="pill pill-info">
+											{activeLoginSession.connectionMode.replaceAll("_", " ")}
+										</span>
+									) : null}
+								</div>
+								<div className="text-sm text-muted-foreground">
+									Use the embedded session below to complete ChatGPT login without
+									touching the worker host directly.
+								</div>
+								{activeLoginSession.lastError ? (
+									<div className="text-sm text-destructive">
+										{activeLoginSession.lastError}
+									</div>
+								) : null}
 							</div>
-							<div className="text-sm text-muted-foreground">
-								Open the worker-hosted Chrome window and complete the ChatGPT
-								login.
+							<div className="flex flex-wrap gap-2">
+								<Button
+									variant="outline"
+									className="rounded-full"
+									disabled={isLoginSessionTerminal(activeLoginSession)}
+									onClick={() => void refreshLoginStream()}
+								>
+									<RefreshCw className="size-4" />
+									Refresh stream
+								</Button>
+								<Button
+									variant="ghost"
+									className="rounded-full"
+									onClick={() => setShowLoginPanel(false)}
+								>
+									Close panel
+								</Button>
 							</div>
 						</div>
-						<div className="text-sm text-muted-foreground">
-							Expires {formatDate(activeLoginSession.expiresAt)}
+
+						<div className="grid gap-4 xl:grid-cols-[1.45fr_0.8fr]">
+							<div className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-black/40">
+								{activeLoginSession.streamUrl &&
+								!isLoginSessionTerminal(activeLoginSession) ? (
+									<iframe
+										title="Remote browser session"
+										src={activeLoginSession.streamUrl}
+										className="h-[680px] w-full border-0 bg-black"
+										allow="clipboard-read; clipboard-write"
+									/>
+								) : (
+									<div className="flex h-[420px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
+										{activeLoginSession.sessionStatus === "ready"
+											? "This browser session finished successfully. BrokeStack will reuse the saved workspace profile for future runs."
+											: "The embedded browser stream is not available right now. Refresh the stream or restart the connection session."}
+									</div>
+								)}
+							</div>
+
+							<div className="space-y-4">
+								<SurfaceCard tone="muted" className="space-y-3 p-4">
+									<div className="text-sm font-medium">Session lifecycle</div>
+									<div className="text-sm text-muted-foreground">
+										Started {formatDate(activeLoginSession.startedAt)}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										Expires {formatDate(activeLoginSession.expiresAt)}
+									</div>
+									<div className="text-sm text-muted-foreground">
+										Browser instance:{" "}
+										<span className="font-mono text-[11px] text-foreground">
+											{activeLoginSession.browserInstanceId ?? "pending"}
+										</span>
+									</div>
+								</SurfaceCard>
+
+								<SurfaceCard tone="muted" className="space-y-3 p-4">
+									<div className="text-sm font-medium">Fallback</div>
+									<div className="text-sm text-muted-foreground">
+										If ChatGPT or the identity provider demands a device-bound
+										step, switch this connection session into a local-device
+										bridge.
+									</div>
+									<Button
+										variant="outline"
+										className="rounded-full"
+										disabled={startingLocalBridge}
+										onClick={() => void startLocalBridge()}
+									>
+										{startingLocalBridge ? (
+											<LoaderCircle className="size-4 animate-spin" />
+										) : (
+											<ShieldCheck className="size-4" />
+										)}
+										Continue on this device
+									</Button>
+									{activeLoginSession.fallbackRequired ? (
+										<div className="rounded-[20px] border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">
+											This session has flagged that a local-device fallback may be
+											required.
+										</div>
+									) : null}
+									{localBridgeSession ? (
+										<div className="rounded-[20px] border border-[var(--brand-border-soft)] bg-background/50 p-3 text-sm text-muted-foreground">
+											Local bridge token:{" "}
+											<span className="font-mono text-[11px] text-foreground">
+												{localBridgeSession.challengeToken}
+											</span>
+										</div>
+									) : null}
+								</SurfaceCard>
+							</div>
 						</div>
 					</div>
 				</SurfaceCard>
@@ -496,7 +743,7 @@ export function DashboardAutomations() {
 
 			<DashboardPanel
 				title="Connections"
-				description="Each workspace keeps its own persistent Chrome profile. Start the manual login flow whenever ChatGPT needs to be connected or refreshed."
+				description="Each workspace keeps its own persistent Chrome profile. Start a remote browser connection session whenever ChatGPT needs to be connected or refreshed."
 			>
 				<div className="grid gap-4 lg:grid-cols-[1.2fr_2fr]">
 					<SurfaceCard tone="muted" className="space-y-4 p-5">
@@ -550,7 +797,7 @@ export function DashboardAutomations() {
 								const loginBusy = startingLogin === account.id;
 								const loginInProgress =
 									activeLoginSession?.providerAccountId === account.id &&
-									!activeLoginSession.completedAt;
+									!isLoginSessionTerminal(activeLoginSession);
 								const canRun =
 									account.status === "ready" || account.status === "busy";
 								return (
@@ -588,16 +835,20 @@ export function DashboardAutomations() {
 												<Button
 													variant="outline"
 													className="rounded-full"
-													disabled={loginBusy || loginInProgress}
-													onClick={() => void startLogin(account.id)}
+													disabled={loginBusy}
+													onClick={() =>
+														loginInProgress
+															? setShowLoginPanel(true)
+															: void startLogin(account.id)
+													}
 												>
-													{loginBusy || loginInProgress ? (
+													{loginBusy ? (
 														<LoaderCircle className="size-4 animate-spin" />
 													) : (
 														<RefreshCw className="size-4" />
 													)}
 													{loginInProgress
-														? "Login in progress"
+														? "Resume browser"
 														: account.status === "ready"
 															? "Reconnect"
 															: "Connect"}

@@ -37,8 +37,25 @@ type StartLoginSessionRequest struct {
 }
 
 type StartLoginSessionResponse struct {
+	WorkerSessionID    string `json:"workerSessionId"`
+	BrowserInstanceID  string `json:"browserInstanceId"`
+	Status             string `json:"status"`
+	SessionStatus      string `json:"sessionStatus"`
+	StreamSessionToken string `json:"streamSessionToken"`
+	StreamURL          string `json:"streamUrl"`
+	RuntimeType        string `json:"runtimeType"`
+	ProfileMountPath   string `json:"profileMountPath"`
+	Region             string `json:"region"`
+	NodeName           string `json:"nodeName"`
+}
+
+type RefreshLoginSessionStreamRequest struct {
 	WorkerSessionID string `json:"workerSessionId"`
-	Status          string `json:"status"`
+}
+
+type RefreshLoginSessionStreamResponse struct {
+	StreamSessionToken string `json:"streamSessionToken"`
+	StreamURL          string `json:"streamUrl"`
 }
 
 type StartAutomationRunRequest struct {
@@ -69,6 +86,16 @@ func (c *Client) StartLoginSession(ctx context.Context, payload StartLoginSessio
 func (c *Client) StartAutomationRun(ctx context.Context, payload StartAutomationRunRequest) (*StartAutomationRunResponse, error) {
 	response := &StartAutomationRunResponse{}
 	if err := c.post(ctx, "/automation-runs", payload, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (c *Client) RefreshLoginSessionStream(ctx context.Context, workerSessionID string) (*RefreshLoginSessionStreamResponse, error) {
+	response := &RefreshLoginSessionStreamResponse{}
+	if err := c.post(ctx, fmt.Sprintf("/provider-accounts/login-sessions/%s/refresh-stream", workerSessionID), RefreshLoginSessionStreamRequest{
+		WorkerSessionID: workerSessionID,
+	}, response); err != nil {
 		return nil, err
 	}
 	return response, nil

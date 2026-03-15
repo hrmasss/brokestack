@@ -153,15 +153,53 @@ type ProviderAccount struct {
 type ProviderLoginSession struct {
 	bun.BaseModel `bun:"table:provider_login_sessions"`
 
+	ID                 uuid.UUID  `bun:"id,pk,type:uuid"`
+	ProviderAccountID  uuid.UUID  `bun:"provider_account_id,notnull,type:uuid"`
+	WorkspaceID        uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	ConnectionMode     string     `bun:"connection_mode,notnull"`
+	SessionStatus      string     `bun:"session_status,notnull"`
+	Status             string     `bun:"status,notnull"`
+	BrowserInstanceID  string     `bun:"browser_instance_id"`
+	StreamSessionToken string     `bun:"stream_session_token"`
+	StreamURL          string     `bun:"stream_url"`
+	FallbackRequired   bool       `bun:"fallback_required,notnull"`
+	WorkerSessionID    string     `bun:"worker_session_id"`
+	StartedAt          time.Time  `bun:"started_at,notnull"`
+	CompletedAt        *time.Time `bun:"completed_at"`
+	ExpiresAt          time.Time  `bun:"expires_at,notnull"`
+	LastError          string     `bun:"last_error"`
+}
+
+type BrowserInstance struct {
+	bun.BaseModel `bun:"table:browser_instances"`
+
 	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
-	ProviderAccountID uuid.UUID  `bun:"provider_account_id,notnull,type:uuid"`
 	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	ProviderAccountID uuid.UUID  `bun:"provider_account_id,notnull,type:uuid"`
+	Provider          string     `bun:"provider,notnull"`
 	Status            string     `bun:"status,notnull"`
-	WorkerSessionID   string     `bun:"worker_session_id"`
+	RuntimeType       string     `bun:"runtime_type,notnull"`
+	ProfileMountPath  string     `bun:"profile_mount_path,notnull"`
 	StartedAt         time.Time  `bun:"started_at,notnull"`
-	CompletedAt       *time.Time `bun:"completed_at"`
-	ExpiresAt         time.Time  `bun:"expires_at,notnull"`
+	EndedAt           *time.Time `bun:"ended_at"`
+	LastHeartbeatAt   *time.Time `bun:"last_heartbeat_at"`
+	Region            string     `bun:"region"`
+	NodeName          string     `bun:"node_name"`
 	LastError         string     `bun:"last_error"`
+}
+
+type LocalBridgeSession struct {
+	bun.BaseModel `bun:"table:local_bridge_sessions"`
+
+	ID                     uuid.UUID  `bun:"id,pk,type:uuid"`
+	ProviderLoginSessionID uuid.UUID  `bun:"provider_login_session_id,notnull,type:uuid"`
+	WorkspaceID            uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Status                 string     `bun:"status,notnull"`
+	ChallengeToken         string     `bun:"challenge_token,notnull"`
+	ConnectedAt            *time.Time `bun:"connected_at"`
+	CompletedAt            *time.Time `bun:"completed_at"`
+	LastError              string     `bun:"last_error"`
+	CreatedAt              time.Time  `bun:"created_at,notnull"`
 }
 
 type Automation struct {

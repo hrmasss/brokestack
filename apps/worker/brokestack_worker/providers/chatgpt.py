@@ -64,6 +64,12 @@ WINDOWS_CHROME_PATHS = (
     r"%LOCALAPPDATA%\Chromium\Application\chrome.exe",
 )
 
+PROFILE_LOCK_FILENAMES = (
+    "SingletonLock",
+    "SingletonCookie",
+    "SingletonSocket",
+)
+
 
 @dataclass(slots=True)
 class ActiveLoginSession:
@@ -189,6 +195,10 @@ def detect_chrome_major_version(binary_path: str | None) -> int | None:
         return int(match.group(1))
     except ValueError:
         return None
+
+
+def profile_appears_locked(profile_dir: Path) -> bool:
+    return any((profile_dir / filename).exists() for filename in PROFILE_LOCK_FILENAMES)
 
 
 class ChatGPTProviderAdapter:
@@ -385,7 +395,16 @@ class ChatGPTProviderAdapter:
                     if chrome_major_version is not None:
                         details.append(f"major={chrome_major_version}")
                     detail_suffix = f" ({', '.join(details)})" if details else ""
-                    raise RuntimeError(f"Unable to start Chrome for ChatGPT automation{detail_suffix}: {exc.msg}") from exc
+                    extra_hint = ""
+                    lowered_message = exc.msg.lower()
+                    if "chrome not reachable" in lowered_message or profile_appears_locked(profile_dir):
+                        extra_hint = (
+                            " The workspace Chrome profile appears to already be open in another Chrome window. "
+                            "Close that window and retry so only one Chrome instance uses the profile at a time."
+                        )
+                    raise RuntimeError(
+                        f"Unable to start Chrome for ChatGPT automation{detail_suffix}: {exc.msg}{extra_hint}"
+                    ) from exc
                 time.sleep(2)
         else:
             raise RuntimeError(f"Unable to start Chrome for ChatGPT automation: {last_error}")

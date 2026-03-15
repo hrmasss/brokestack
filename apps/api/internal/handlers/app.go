@@ -66,6 +66,8 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Get("/provider-accounts/:id", h.requireAuth, h.getProviderAccount)
 	api.Post("/provider-accounts/:id/login-sessions", h.requireAuth, h.startProviderLoginSession)
 	api.Get("/provider-accounts/:id/login-sessions/:sessionId", h.requireAuth, h.getProviderLoginSession)
+	api.Post("/provider-accounts/:id/login-sessions/:sessionId/refresh-stream", h.requireAuth, h.refreshProviderLoginSessionStream)
+	api.Post("/provider-accounts/:id/login-sessions/:sessionId/local-bridge", h.requireAuth, h.startProviderLoginLocalBridge)
 	api.Post("/workspaces/:id/automations", h.requireAuth, h.createAutomation)
 	api.Get("/workspaces/:id/automations", h.requireAuth, h.listAutomations)
 	api.Get("/workspaces/:id/automation-runs", h.requireAuth, h.listWorkspaceAutomationRuns)
@@ -89,6 +91,7 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/platform/workspaces/:id/assume-access", h.requireAuth, h.assumeWorkspace)
 
 	app.Post("/api/internal/worker/run-events", h.handleWorkerRunEvent)
+	app.Post("/api/internal/worker/browser-events", h.handleWorkerBrowserEvent)
 }
 
 func (h *AppHandler) requireAuth(c fiber.Ctx) error {

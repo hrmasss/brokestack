@@ -271,7 +271,13 @@ var schemaStatements = []string{
 		id uuid PRIMARY KEY,
 		provider_account_id uuid NOT NULL REFERENCES provider_accounts(id) ON DELETE CASCADE,
 		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		connection_mode text NOT NULL DEFAULT 'remote_browser',
+		session_status text NOT NULL DEFAULT 'launching',
 		status text NOT NULL DEFAULT 'pending_login',
+		browser_instance_id text NOT NULL DEFAULT '',
+		stream_session_token text NOT NULL DEFAULT '',
+		stream_url text NOT NULL DEFAULT '',
+		fallback_required boolean NOT NULL DEFAULT false,
 		worker_session_id text NOT NULL DEFAULT '',
 		started_at timestamptz NOT NULL DEFAULT now(),
 		completed_at timestamptz,
@@ -279,6 +285,34 @@ var schemaStatements = []string{
 		last_error text NOT NULL DEFAULT ''
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_provider_login_sessions_account_id ON provider_login_sessions(provider_account_id, started_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS browser_instances (
+		id uuid PRIMARY KEY,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		provider_account_id uuid NOT NULL REFERENCES provider_accounts(id) ON DELETE CASCADE,
+		provider text NOT NULL,
+		status text NOT NULL DEFAULT 'launching',
+		runtime_type text NOT NULL DEFAULT 'embedded_stream',
+		profile_mount_path text NOT NULL DEFAULT '',
+		started_at timestamptz NOT NULL DEFAULT now(),
+		ended_at timestamptz,
+		last_heartbeat_at timestamptz,
+		region text NOT NULL DEFAULT '',
+		node_name text NOT NULL DEFAULT '',
+		last_error text NOT NULL DEFAULT ''
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_browser_instances_account_id ON browser_instances(provider_account_id, started_at DESC)`,
+	`CREATE TABLE IF NOT EXISTS local_bridge_sessions (
+		id uuid PRIMARY KEY,
+		provider_login_session_id uuid NOT NULL REFERENCES provider_login_sessions(id) ON DELETE CASCADE,
+		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+		status text NOT NULL DEFAULT 'queued',
+		challenge_token text NOT NULL,
+		connected_at timestamptz,
+		completed_at timestamptz,
+		last_error text NOT NULL DEFAULT '',
+		created_at timestamptz NOT NULL DEFAULT now()
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_local_bridge_sessions_login_session_id ON local_bridge_sessions(provider_login_session_id, created_at DESC)`,
 	`CREATE TABLE IF NOT EXISTS automations (
 		id uuid PRIMARY KEY,
 		workspace_id uuid NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -337,6 +371,24 @@ func Bootstrap(ctx context.Context, db *bun.DB, cfg *config.Config) error {
 	}
 	if _, err := db.ExecContext(ctx, `ALTER TABLE auth_sessions ADD COLUMN IF NOT EXISTS impersonator_user_id uuid REFERENCES users(id) ON DELETE SET NULL`); err != nil {
 		return fmt.Errorf("ensure auth_sessions.impersonator_user_id: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE provider_login_sessions ADD COLUMN IF NOT EXISTS connection_mode text NOT NULL DEFAULT 'remote_browser'`); err != nil {
+		return fmt.Errorf("ensure provider_login_sessions.connection_mode: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE provider_login_sessions ADD COLUMN IF NOT EXISTS session_status text NOT NULL DEFAULT 'launching'`); err != nil {
+		return fmt.Errorf("ensure provider_login_sessions.session_status: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE provider_login_sessions ADD COLUMN IF NOT EXISTS browser_instance_id text NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("ensure provider_login_sessions.browser_instance_id: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE provider_login_sessions ADD COLUMN IF NOT EXISTS stream_session_token text NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("ensure provider_login_sessions.stream_session_token: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE provider_login_sessions ADD COLUMN IF NOT EXISTS stream_url text NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("ensure provider_login_sessions.stream_url: %w", err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE provider_login_sessions ADD COLUMN IF NOT EXISTS fallback_required boolean NOT NULL DEFAULT false`); err != nil {
+		return fmt.Errorf("ensure provider_login_sessions.fallback_required: %w", err)
 	}
 
 	if err := seedPermissions(ctx, db); err != nil {

@@ -16,12 +16,29 @@ import (
 
 const (
 	automationKindImageGeneration = "image_generation"
+	connectionModeRemoteBrowser   = "remote_browser"
+	connectionModeLocalBridge     = "local_bridge"
 
 	accountStatusPendingLogin = "pending_login"
 	accountStatusReady        = "ready"
 	accountStatusNeedsReauth  = "needs_reauth"
 	accountStatusBusy         = "busy"
 	accountStatusError        = "error"
+
+	loginSessionStatusQueued         = "queued"
+	loginSessionStatusLaunching      = "launching"
+	loginSessionStatusReadyForUser   = "ready_for_user"
+	loginSessionStatusAuthInProgress = "auth_in_progress"
+	loginSessionStatusReady          = "ready"
+	loginSessionStatusFailed         = "failed"
+	loginSessionStatusExpired        = "expired"
+
+	browserInstanceStatusLaunching      = "launching"
+	browserInstanceStatusReadyForUser   = "ready_for_user"
+	browserInstanceStatusAuthInProgress = "auth_in_progress"
+	browserInstanceStatusReady          = "ready"
+	browserInstanceStatusClosed         = "closed"
+	browserInstanceStatusFailed         = "failed"
 
 	runStatusQueued           = "queued"
 	runStatusStarting         = "starting"
@@ -55,15 +72,49 @@ type ProviderAccountRecord struct {
 }
 
 type ProviderLoginSessionRecord struct {
+	ID                 string `json:"id"`
+	ProviderAccountID  string `json:"providerAccountId"`
+	WorkspaceID        string `json:"workspaceId"`
+	ConnectionMode     string `json:"connectionMode"`
+	SessionStatus      string `json:"sessionStatus"`
+	Status             string `json:"status"`
+	BrowserInstanceID  string `json:"browserInstanceId,omitempty"`
+	StreamSessionToken string `json:"streamSessionToken,omitempty"`
+	StreamURL          string `json:"streamUrl,omitempty"`
+	FallbackRequired   bool   `json:"fallbackRequired"`
+	WorkerSessionID    string `json:"workerSessionId,omitempty"`
+	StartedAt          string `json:"startedAt"`
+	CompletedAt        string `json:"completedAt,omitempty"`
+	ExpiresAt          string `json:"expiresAt"`
+	LastError          string `json:"lastError,omitempty"`
+}
+
+type BrowserInstanceRecord struct {
 	ID                string `json:"id"`
-	ProviderAccountID string `json:"providerAccountId"`
 	WorkspaceID       string `json:"workspaceId"`
+	ProviderAccountID string `json:"providerAccountId"`
+	Provider          string `json:"provider"`
 	Status            string `json:"status"`
-	WorkerSessionID   string `json:"workerSessionId,omitempty"`
+	RuntimeType       string `json:"runtimeType"`
+	ProfileMountPath  string `json:"profileMountPath"`
 	StartedAt         string `json:"startedAt"`
-	CompletedAt       string `json:"completedAt,omitempty"`
-	ExpiresAt         string `json:"expiresAt"`
+	EndedAt           string `json:"endedAt,omitempty"`
+	LastHeartbeatAt   string `json:"lastHeartbeatAt,omitempty"`
+	Region            string `json:"region,omitempty"`
+	NodeName          string `json:"nodeName,omitempty"`
 	LastError         string `json:"lastError,omitempty"`
+}
+
+type LocalBridgeSessionRecord struct {
+	ID                     string `json:"id"`
+	ProviderLoginSessionID string `json:"providerLoginSessionId"`
+	WorkspaceID            string `json:"workspaceId"`
+	Status                 string `json:"status"`
+	ChallengeToken         string `json:"challengeToken"`
+	ConnectedAt            string `json:"connectedAt,omitempty"`
+	CompletedAt            string `json:"completedAt,omitempty"`
+	LastError              string `json:"lastError,omitempty"`
+	CreatedAt              string `json:"createdAt"`
 }
 
 type AutomationRecord struct {
@@ -115,18 +166,28 @@ type AutomationRunDispatch struct {
 	Config  AutomationConfig
 }
 
-type WorkerRunEventPayload struct {
-	EventID           string                  `json:"eventId"`
-	EventType         string                  `json:"eventType"`
-	ProviderAccountID string                  `json:"providerAccountId,omitempty"`
-	LoginSessionID    string                  `json:"loginSessionId,omitempty"`
-	RunID             string                  `json:"runId,omitempty"`
-	WorkerRunID       string                  `json:"workerRunId,omitempty"`
-	Status            string                  `json:"status,omitempty"`
-	Message           string                  `json:"message,omitempty"`
-	ProviderThreadURL string                  `json:"providerThreadUrl,omitempty"`
-	ProviderThreadID  string                  `json:"providerThreadId,omitempty"`
-	Output            *WorkerRunOutputPayload `json:"output,omitempty"`
+type WorkerEventPayload struct {
+	EventID            string                  `json:"eventId"`
+	EventType          string                  `json:"eventType"`
+	ProviderAccountID  string                  `json:"providerAccountId,omitempty"`
+	LoginSessionID     string                  `json:"loginSessionId,omitempty"`
+	RunID              string                  `json:"runId,omitempty"`
+	WorkerRunID        string                  `json:"workerRunId,omitempty"`
+	BrowserInstanceID  string                  `json:"browserInstanceId,omitempty"`
+	Status             string                  `json:"status,omitempty"`
+	SessionStatus      string                  `json:"sessionStatus,omitempty"`
+	ConnectionMode     string                  `json:"connectionMode,omitempty"`
+	Message            string                  `json:"message,omitempty"`
+	StreamSessionToken string                  `json:"streamSessionToken,omitempty"`
+	StreamURL          string                  `json:"streamUrl,omitempty"`
+	FallbackRequired   bool                    `json:"fallbackRequired,omitempty"`
+	RuntimeType        string                  `json:"runtimeType,omitempty"`
+	ProfileMountPath   string                  `json:"profileMountPath,omitempty"`
+	Region             string                  `json:"region,omitempty"`
+	NodeName           string                  `json:"nodeName,omitempty"`
+	ProviderThreadURL  string                  `json:"providerThreadUrl,omitempty"`
+	ProviderThreadID   string                  `json:"providerThreadId,omitempty"`
+	Output             *WorkerRunOutputPayload `json:"output,omitempty"`
 }
 
 type WorkerRunOutputPayload struct {
@@ -220,17 +281,29 @@ func (s *Service) StartProviderLoginSession(ctx context.Context, principal *Prin
 	if _, err := s.requireWorkspaceAccess(ctx, principal, account.WorkspaceID, "automations.manage"); err != nil {
 		return nil, nil, err
 	}
+	if _, err := s.findActiveProviderLoginSession(ctx, account.ID); err == nil {
+		return nil, nil, fmt.Errorf("%w: provider login session is already active", ErrConflict)
+	} else if !errors.Is(err, ErrNotFound) {
+		return nil, nil, err
+	}
 
 	now := time.Now().UTC()
+	accountStatus := accountStatusPendingLogin
+	if account.Status == accountStatusReady || account.Status == accountStatusBusy || account.LastValidatedAt != nil {
+		accountStatus = accountStatusBusy
+	}
 	session := &database.ProviderLoginSession{
 		ID:                uuid.New(),
 		ProviderAccountID: account.ID,
 		WorkspaceID:       account.WorkspaceID,
+		ConnectionMode:    connectionModeRemoteBrowser,
+		SessionStatus:     loginSessionStatusLaunching,
 		Status:            accountStatusPendingLogin,
+		FallbackRequired:  false,
 		StartedAt:         now,
 		ExpiresAt:         now.Add(30 * time.Minute),
 	}
-	account.Status = accountStatusPendingLogin
+	account.Status = accountStatus
 	account.LastError = ""
 	account.UpdatedAt = now
 
@@ -249,11 +322,92 @@ func (s *Service) StartProviderLoginSession(ctx context.Context, principal *Prin
 	return &record, account, nil
 }
 
-func (s *Service) SetProviderLoginSessionWorkerID(ctx context.Context, sessionID uuid.UUID, workerSessionID string) error {
-	_, err := s.db.NewUpdate().
-		Model((*database.ProviderLoginSession)(nil)).
-		Set("worker_session_id = ?", workerSessionID).
-		Where("id = ?", sessionID).
+func (s *Service) SyncProviderLoginSessionWorkerState(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	workerSessionID string,
+	browserInstanceID string,
+	sessionStatus string,
+	status string,
+	streamSessionToken string,
+	streamURL string,
+	profileMountPath string,
+	runtimeType string,
+	region string,
+	nodeName string,
+) error {
+	session, err := s.findProviderLoginSessionByID(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	update := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil))
+	if strings.TrimSpace(workerSessionID) != "" {
+		update = update.Set("worker_session_id = ?", workerSessionID)
+	}
+	if strings.TrimSpace(browserInstanceID) != "" {
+		update = update.Set("browser_instance_id = ?", browserInstanceID)
+	}
+	if strings.TrimSpace(sessionStatus) != "" {
+		update = update.Set("session_status = ?", sessionStatus)
+	}
+	if strings.TrimSpace(status) != "" {
+		update = update.Set("status = ?", status)
+	}
+	if strings.TrimSpace(streamSessionToken) != "" {
+		update = update.Set("stream_session_token = ?", streamSessionToken)
+	}
+	if strings.TrimSpace(streamURL) != "" {
+		update = update.Set("stream_url = ?", streamURL)
+	}
+	if _, err := update.Where("id = ?", sessionID).Exec(ctx); err != nil {
+		return err
+	}
+
+	if strings.TrimSpace(browserInstanceID) == "" {
+		return nil
+	}
+	browserID, err := uuid.Parse(browserInstanceID)
+	if err != nil {
+		return err
+	}
+	account, err := s.findProviderAccountByID(ctx, session.ProviderAccountID)
+	if err != nil {
+		return err
+	}
+
+	instance := &database.BrowserInstance{
+		ID:                browserID,
+		WorkspaceID:       session.WorkspaceID,
+		ProviderAccountID: session.ProviderAccountID,
+		Provider:          account.Provider,
+		Status:            browserInstanceStatusLaunching,
+		RuntimeType:       strings.TrimSpace(runtimeType),
+		ProfileMountPath:  strings.TrimSpace(profileMountPath),
+		StartedAt:         time.Now().UTC(),
+		Region:            strings.TrimSpace(region),
+		NodeName:          strings.TrimSpace(nodeName),
+	}
+	if strings.TrimSpace(sessionStatus) != "" {
+		instance.Status = sessionStatus
+	}
+	if instance.RuntimeType == "" {
+		instance.RuntimeType = "embedded_stream"
+	}
+
+	if _, err := s.db.NewInsert().Model(instance).Ignore().Exec(ctx); err != nil {
+		return err
+	}
+	_, err = s.db.NewUpdate().
+		Model((*database.BrowserInstance)(nil)).
+		Set("status = ?", instance.Status).
+		Set("runtime_type = ?", instance.RuntimeType).
+		Set("profile_mount_path = ?", instance.ProfileMountPath).
+		Set("region = ?", instance.Region).
+		Set("node_name = ?", instance.NodeName).
+		Set("last_heartbeat_at = ?", time.Now().UTC()).
+		Where("id = ?", browserID).
 		Exec(ctx)
 	return err
 }
@@ -282,6 +436,78 @@ func (s *Service) GetProviderLoginSession(ctx context.Context, principal *Princi
 
 	record := providerLoginSessionRecordFromModel(session)
 	return &record, nil
+}
+
+func (s *Service) RefreshProviderLoginSessionStream(
+	ctx context.Context,
+	principal *Principal,
+	accountID uuid.UUID,
+	sessionID uuid.UUID,
+	streamSessionToken string,
+	streamURL string,
+) (*ProviderLoginSessionRecord, error) {
+	account, err := s.findProviderAccountByID(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.requireWorkspaceAccess(ctx, principal, account.WorkspaceID, "automations.manage"); err != nil {
+		return nil, err
+	}
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("stream_session_token = ?", streamSessionToken).
+		Set("stream_url = ?", streamURL).
+		Where("id = ?", sessionID).
+		Where("provider_account_id = ?", accountID).
+		Exec(ctx); err != nil {
+		return nil, err
+	}
+	return s.GetProviderLoginSession(ctx, principal, accountID, sessionID)
+}
+
+func (s *Service) StartLocalBridgeSession(ctx context.Context, principal *Principal, accountID, sessionID uuid.UUID) (*LocalBridgeSessionRecord, *ProviderLoginSessionRecord, error) {
+	account, err := s.findProviderAccountByID(ctx, accountID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, err := s.requireWorkspaceAccess(ctx, principal, account.WorkspaceID, "automations.manage"); err != nil {
+		return nil, nil, err
+	}
+	session, err := s.findProviderLoginSessionByID(ctx, sessionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if session.ProviderAccountID != accountID {
+		return nil, nil, ErrForbidden
+	}
+
+	model := &database.LocalBridgeSession{
+		ID:                     uuid.New(),
+		ProviderLoginSessionID: session.ID,
+		WorkspaceID:            session.WorkspaceID,
+		Status:                 "queued",
+		ChallengeToken:         uuid.NewString(),
+		CreatedAt:              time.Now().UTC(),
+	}
+	if _, err := s.db.NewInsert().Model(model).Exec(ctx); err != nil {
+		return nil, nil, err
+	}
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("connection_mode = ?", connectionModeLocalBridge).
+		Set("session_status = ?", loginSessionStatusAuthInProgress).
+		Set("fallback_required = ?", true).
+		Where("id = ?", session.ID).
+		Exec(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	bridgeRecord := localBridgeSessionRecordFromModel(*model)
+	sessionRecord, err := s.GetProviderLoginSession(ctx, principal, accountID, sessionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &bridgeRecord, sessionRecord, nil
 }
 
 func (s *Service) CreateAutomation(ctx context.Context, principal *Principal, workspaceID, providerAccountID uuid.UUID, name string, config AutomationConfig) (*AutomationRecord, error) {
@@ -501,7 +727,7 @@ func (s *Service) GetAutomationRunOutput(ctx context.Context, principal *Princip
 	return &record, nil
 }
 
-func (s *Service) HandleWorkerEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) HandleWorkerEvent(ctx context.Context, payload WorkerEventPayload) error {
 	payload.EventID = strings.TrimSpace(payload.EventID)
 	payload.EventType = strings.TrimSpace(payload.EventType)
 	if payload.EventID == "" || payload.EventType == "" {
@@ -528,6 +754,16 @@ func (s *Service) HandleWorkerEvent(ctx context.Context, payload WorkerRunEventP
 		return s.handleAccountReadyEvent(ctx, payload)
 	case "account.needs_reauth":
 		return s.handleAccountNeedsReauthEvent(ctx, payload)
+	case "browser.ready_for_user":
+		return s.handleBrowserReadyForUserEvent(ctx, payload)
+	case "browser.auth_detected":
+		return s.handleBrowserAuthDetectedEvent(ctx, payload)
+	case "browser.fallback_required":
+		return s.handleBrowserFallbackRequiredEvent(ctx, payload)
+	case "browser.failed":
+		return s.handleBrowserFailedEvent(ctx, payload)
+	case "browser.closed":
+		return s.handleBrowserClosedEvent(ctx, payload)
 	case "run.started", "run.progress":
 		return s.handleRunProgressEvent(ctx, payload)
 	case "run.thread_detected":
@@ -543,7 +779,7 @@ func (s *Service) HandleWorkerEvent(ctx context.Context, payload WorkerRunEventP
 	}
 }
 
-func (s *Service) handleAccountReadyEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleAccountReadyEvent(ctx context.Context, payload WorkerEventPayload) error {
 	accountID, err := uuid.Parse(payload.ProviderAccountID)
 	if err != nil {
 		return err
@@ -572,6 +808,8 @@ func (s *Service) handleAccountReadyEvent(ctx context.Context, payload WorkerRun
 	_, err = s.db.NewUpdate().
 		Model((*database.ProviderLoginSession)(nil)).
 		Set("status = ?", accountStatusReady).
+		Set("session_status = ?", loginSessionStatusReady).
+		Set("fallback_required = ?", false).
 		Set("completed_at = ?", now).
 		Set("last_error = ?", "").
 		Where("id = ?", sessionID).
@@ -579,7 +817,7 @@ func (s *Service) handleAccountReadyEvent(ctx context.Context, payload WorkerRun
 	return err
 }
 
-func (s *Service) handleAccountNeedsReauthEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleAccountNeedsReauthEvent(ctx context.Context, payload WorkerEventPayload) error {
 	accountID, err := uuid.Parse(payload.ProviderAccountID)
 	if err != nil {
 		return err
@@ -606,6 +844,7 @@ func (s *Service) handleAccountNeedsReauthEvent(ctx context.Context, payload Wor
 	_, err = s.db.NewUpdate().
 		Model((*database.ProviderLoginSession)(nil)).
 		Set("status = ?", accountStatusNeedsReauth).
+		Set("session_status = ?", loginSessionStatusFailed).
 		Set("completed_at = ?", now).
 		Set("last_error = ?", payload.Message).
 		Where("id = ?", sessionID).
@@ -613,7 +852,136 @@ func (s *Service) handleAccountNeedsReauthEvent(ctx context.Context, payload Wor
 	return err
 }
 
-func (s *Service) handleRunProgressEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleBrowserReadyForUserEvent(ctx context.Context, payload WorkerEventPayload) error {
+	sessionID, err := uuid.Parse(payload.LoginSessionID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("session_status = ?", loginSessionStatusReadyForUser).
+		Set("browser_instance_id = COALESCE(NULLIF(?, ''), browser_instance_id)", payload.BrowserInstanceID).
+		Set("stream_session_token = COALESCE(NULLIF(?, ''), stream_session_token)", payload.StreamSessionToken).
+		Set("stream_url = COALESCE(NULLIF(?, ''), stream_url)", payload.StreamURL).
+		Set("last_error = ?", "").
+		Set("fallback_required = ?", false).
+		Where("id = ?", sessionID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	if strings.TrimSpace(payload.BrowserInstanceID) == "" {
+		return nil
+	}
+	return s.touchBrowserInstance(ctx, payload, browserInstanceStatusReadyForUser, now)
+}
+
+func (s *Service) handleBrowserAuthDetectedEvent(ctx context.Context, payload WorkerEventPayload) error {
+	sessionID, err := uuid.Parse(payload.LoginSessionID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("session_status = ?", loginSessionStatusAuthInProgress).
+		Set("last_error = ?", "").
+		Where("id = ?", sessionID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	if strings.TrimSpace(payload.BrowserInstanceID) == "" {
+		return nil
+	}
+	return s.touchBrowserInstance(ctx, payload, browserInstanceStatusAuthInProgress, now)
+}
+
+func (s *Service) handleBrowserFallbackRequiredEvent(ctx context.Context, payload WorkerEventPayload) error {
+	sessionID, err := uuid.Parse(payload.LoginSessionID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("session_status = ?", loginSessionStatusAuthInProgress).
+		Set("fallback_required = ?", true).
+		Set("last_error = ?", payload.Message).
+		Where("id = ?", sessionID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	if strings.TrimSpace(payload.BrowserInstanceID) == "" {
+		return nil
+	}
+	return s.touchBrowserInstance(ctx, payload, browserInstanceStatusAuthInProgress, now)
+}
+
+func (s *Service) handleBrowserFailedEvent(ctx context.Context, payload WorkerEventPayload) error {
+	sessionID, err := uuid.Parse(payload.LoginSessionID)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("session_status = ?", loginSessionStatusFailed).
+		Set("status = ?", accountStatusNeedsReauth).
+		Set("last_error = ?", payload.Message).
+		Set("completed_at = ?", now).
+		Where("id = ?", sessionID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	if strings.TrimSpace(payload.ProviderAccountID) != "" {
+		accountID, err := uuid.Parse(payload.ProviderAccountID)
+		if err == nil {
+			_, _ = s.db.NewUpdate().
+				Model((*database.ProviderAccount)(nil)).
+				Set("status = ?", accountStatusNeedsReauth).
+				Set("last_error = ?", payload.Message).
+				Set("updated_at = ?", now).
+				Where("id = ?", accountID).
+				Exec(ctx)
+		}
+	}
+	if strings.TrimSpace(payload.BrowserInstanceID) == "" {
+		return nil
+	}
+	return s.closeBrowserInstance(ctx, payload, browserInstanceStatusFailed, now)
+}
+
+func (s *Service) handleBrowserClosedEvent(ctx context.Context, payload WorkerEventPayload) error {
+	now := time.Now().UTC()
+	if strings.TrimSpace(payload.BrowserInstanceID) != "" {
+		if err := s.closeBrowserInstance(ctx, payload, browserInstanceStatusClosed, now); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(payload.LoginSessionID) == "" {
+		return nil
+	}
+	sessionID, err := uuid.Parse(payload.LoginSessionID)
+	if err != nil {
+		return err
+	}
+	session, err := s.findProviderLoginSessionByID(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	if session.CompletedAt != nil || session.SessionStatus == loginSessionStatusReady || session.SessionStatus == loginSessionStatusFailed {
+		return nil
+	}
+	_, err = s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("session_status = ?", loginSessionStatusExpired).
+		Set("completed_at = ?", now).
+		Where("id = ?", sessionID).
+		Exec(ctx)
+	return err
+}
+
+func (s *Service) handleRunProgressEvent(ctx context.Context, payload WorkerEventPayload) error {
 	runID, err := uuid.Parse(payload.RunID)
 	if err != nil {
 		return err
@@ -640,7 +1008,7 @@ func (s *Service) handleRunProgressEvent(ctx context.Context, payload WorkerRunE
 	return err
 }
 
-func (s *Service) handleRunThreadEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleRunThreadEvent(ctx context.Context, payload WorkerEventPayload) error {
 	runID, err := uuid.Parse(payload.RunID)
 	if err != nil {
 		return err
@@ -654,7 +1022,7 @@ func (s *Service) handleRunThreadEvent(ctx context.Context, payload WorkerRunEve
 	return err
 }
 
-func (s *Service) handleRunOutputReadyEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleRunOutputReadyEvent(ctx context.Context, payload WorkerEventPayload) error {
 	if payload.Output == nil {
 		return fmt.Errorf("%w: output payload is required", ErrValidation)
 	}
@@ -692,7 +1060,7 @@ func (s *Service) handleRunOutputReadyEvent(ctx context.Context, payload WorkerR
 	return err
 }
 
-func (s *Service) handleRunCompletedEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleRunCompletedEvent(ctx context.Context, payload WorkerEventPayload) error {
 	runID, err := uuid.Parse(payload.RunID)
 	if err != nil {
 		return err
@@ -725,7 +1093,7 @@ func (s *Service) handleRunCompletedEvent(ctx context.Context, payload WorkerRun
 	return err
 }
 
-func (s *Service) handleRunFailedEvent(ctx context.Context, payload WorkerRunEventPayload) error {
+func (s *Service) handleRunFailedEvent(ctx context.Context, payload WorkerEventPayload) error {
 	runID, err := uuid.Parse(payload.RunID)
 	if err != nil {
 		return err
@@ -772,6 +1140,36 @@ func (s *Service) findProviderAccountByID(ctx context.Context, accountID uuid.UU
 		return nil, err
 	}
 	return &account, nil
+}
+
+func (s *Service) findActiveProviderLoginSession(ctx context.Context, accountID uuid.UUID) (*database.ProviderLoginSession, error) {
+	var session database.ProviderLoginSession
+	if err := s.db.NewSelect().
+		Model(&session).
+		Where("provider_account_id = ?", accountID).
+		Where("completed_at IS NULL").
+		Where("expires_at > ?", time.Now().UTC()).
+		Where("session_status NOT IN (?, ?)", loginSessionStatusFailed, loginSessionStatusExpired).
+		OrderExpr("started_at DESC").
+		Limit(1).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (s *Service) findProviderLoginSessionByID(ctx context.Context, sessionID uuid.UUID) (*database.ProviderLoginSession, error) {
+	var session database.ProviderLoginSession
+	if err := s.db.NewSelect().Model(&session).Where("id = ?", sessionID).Limit(1).Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &session, nil
 }
 
 func (s *Service) findAutomationByID(ctx context.Context, automationID uuid.UUID) (*database.Automation, error) {
@@ -862,14 +1260,20 @@ func providerAccountRecordFromModel(model database.ProviderAccount) ProviderAcco
 
 func providerLoginSessionRecordFromModel(model database.ProviderLoginSession) ProviderLoginSessionRecord {
 	record := ProviderLoginSessionRecord{
-		ID:                model.ID.String(),
-		ProviderAccountID: model.ProviderAccountID.String(),
-		WorkspaceID:       model.WorkspaceID.String(),
-		Status:            model.Status,
-		WorkerSessionID:   model.WorkerSessionID,
-		StartedAt:         model.StartedAt.Format(time.RFC3339),
-		ExpiresAt:         model.ExpiresAt.Format(time.RFC3339),
-		LastError:         model.LastError,
+		ID:                 model.ID.String(),
+		ProviderAccountID:  model.ProviderAccountID.String(),
+		WorkspaceID:        model.WorkspaceID.String(),
+		ConnectionMode:     model.ConnectionMode,
+		SessionStatus:      model.SessionStatus,
+		Status:             model.Status,
+		BrowserInstanceID:  model.BrowserInstanceID,
+		StreamSessionToken: model.StreamSessionToken,
+		StreamURL:          model.StreamURL,
+		FallbackRequired:   model.FallbackRequired,
+		WorkerSessionID:    model.WorkerSessionID,
+		StartedAt:          model.StartedAt.Format(time.RFC3339),
+		ExpiresAt:          model.ExpiresAt.Format(time.RFC3339),
+		LastError:          model.LastError,
 	}
 	if model.CompletedAt != nil {
 		record.CompletedAt = model.CompletedAt.Format(time.RFC3339)
@@ -914,6 +1318,96 @@ func automationRunOutputRecordFromModel(model database.AutomationRunOutput) Auto
 		CreatedAt:        model.CreatedAt.Format(time.RFC3339),
 		ContentURL:       fmt.Sprintf("/api/v1/automation-run-outputs/%s/content", model.ID),
 	}
+}
+
+func browserInstanceRecordFromModel(model database.BrowserInstance) BrowserInstanceRecord {
+	record := BrowserInstanceRecord{
+		ID:                model.ID.String(),
+		WorkspaceID:       model.WorkspaceID.String(),
+		ProviderAccountID: model.ProviderAccountID.String(),
+		Provider:          model.Provider,
+		Status:            model.Status,
+		RuntimeType:       model.RuntimeType,
+		ProfileMountPath:  model.ProfileMountPath,
+		StartedAt:         model.StartedAt.Format(time.RFC3339),
+		Region:            model.Region,
+		NodeName:          model.NodeName,
+		LastError:         model.LastError,
+	}
+	if model.EndedAt != nil {
+		record.EndedAt = model.EndedAt.Format(time.RFC3339)
+	}
+	if model.LastHeartbeatAt != nil {
+		record.LastHeartbeatAt = model.LastHeartbeatAt.Format(time.RFC3339)
+	}
+	return record
+}
+
+func localBridgeSessionRecordFromModel(model database.LocalBridgeSession) LocalBridgeSessionRecord {
+	record := LocalBridgeSessionRecord{
+		ID:                     model.ID.String(),
+		ProviderLoginSessionID: model.ProviderLoginSessionID.String(),
+		WorkspaceID:            model.WorkspaceID.String(),
+		Status:                 model.Status,
+		ChallengeToken:         model.ChallengeToken,
+		LastError:              model.LastError,
+		CreatedAt:              model.CreatedAt.Format(time.RFC3339),
+	}
+	if model.ConnectedAt != nil {
+		record.ConnectedAt = model.ConnectedAt.Format(time.RFC3339)
+	}
+	if model.CompletedAt != nil {
+		record.CompletedAt = model.CompletedAt.Format(time.RFC3339)
+	}
+	return record
+}
+
+func (s *Service) touchBrowserInstance(ctx context.Context, payload WorkerEventPayload, status string, at time.Time) error {
+	browserID, err := uuid.Parse(payload.BrowserInstanceID)
+	if err != nil {
+		return err
+	}
+	query := s.db.NewUpdate().
+		Model((*database.BrowserInstance)(nil)).
+		Set("status = ?", status).
+		Set("last_heartbeat_at = ?", at)
+	if strings.TrimSpace(payload.StreamURL) != "" {
+		query = query.Set("last_error = ?", "")
+	}
+	if strings.TrimSpace(payload.RuntimeType) != "" {
+		query = query.Set("runtime_type = ?", payload.RuntimeType)
+	}
+	if strings.TrimSpace(payload.ProfileMountPath) != "" {
+		query = query.Set("profile_mount_path = ?", payload.ProfileMountPath)
+	}
+	if strings.TrimSpace(payload.Region) != "" {
+		query = query.Set("region = ?", payload.Region)
+	}
+	if strings.TrimSpace(payload.NodeName) != "" {
+		query = query.Set("node_name = ?", payload.NodeName)
+	}
+	if strings.TrimSpace(payload.Message) != "" {
+		query = query.Set("last_error = ?", payload.Message)
+	}
+	_, err = query.Where("id = ?", browserID).Exec(ctx)
+	return err
+}
+
+func (s *Service) closeBrowserInstance(ctx context.Context, payload WorkerEventPayload, status string, at time.Time) error {
+	browserID, err := uuid.Parse(payload.BrowserInstanceID)
+	if err != nil {
+		return err
+	}
+	query := s.db.NewUpdate().
+		Model((*database.BrowserInstance)(nil)).
+		Set("status = ?", status).
+		Set("ended_at = ?", at).
+		Set("last_heartbeat_at = ?", at)
+	if strings.TrimSpace(payload.Message) != "" {
+		query = query.Set("last_error = ?", payload.Message)
+	}
+	_, err = query.Where("id = ?", browserID).Exec(ctx)
+	return err
 }
 
 func normalizeAutomationConfig(config AutomationConfig, provider string) AutomationConfig {

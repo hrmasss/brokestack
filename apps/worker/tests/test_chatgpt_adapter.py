@@ -40,6 +40,7 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
         settings = WorkerSettings(
             worker_shared_secret="secret",
             api_base_url="http://localhost:8080",
+            public_base_url="http://localhost:8091",
             browser_state_dir=Path(".tmp/browser-state"),
             outputs_dir=Path(".tmp/storage/outputs"),
             chrome_binary_path=None,
@@ -73,6 +74,7 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
         settings = WorkerSettings(
             worker_shared_secret="secret",
             api_base_url="http://localhost:8080",
+            public_base_url="http://localhost:8091",
             browser_state_dir=Path(".tmp/browser-state"),
             outputs_dir=Path(".tmp/storage/outputs"),
             chrome_binary_path=None,
