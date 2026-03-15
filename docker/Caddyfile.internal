@@ -8,23 +8,29 @@ http://api.memofi.tech {
 }
 
 http://app.memofi.tech {
-	handle_path /worker/* {
-		reverse_proxy 127.0.0.1:8091
-	}
+	route {
+		@worker {
+			path /worker /worker/*
+		}
+		handle @worker {
+			uri strip_prefix /worker
+			reverse_proxy 127.0.0.1:8091
+		}
 
-	@app_root {
-		path /
-	}
-	redir @app_root /login 302
+		@app_root {
+			path /
+		}
+		redir @app_root /login 302
 
-	@app_marketing {
-		path /features /pricing /about /blog /blog/*
-	}
-	redir @app_marketing https://memofi.tech{uri} 302
+		@app_marketing {
+			path /features /pricing /about /blog /blog/*
+		}
+		redir @app_marketing https://memofi.tech{uri} 302
 
-	root * /srv/brokestack/web/dist
-	try_files {path} {path}/ /index.html
-	file_server
+		root * /srv/brokestack/web/dist
+		try_files {path} {path}/ /index.html
+		file_server
+	}
 }
 
 http://memofi.tech, http://www.memofi.tech {
