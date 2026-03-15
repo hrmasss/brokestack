@@ -12,15 +12,21 @@ import (
 	"github.com/brokestack/api/internal/auth"
 	"github.com/brokestack/api/internal/config"
 	"github.com/brokestack/api/internal/iam"
+	"github.com/brokestack/api/internal/workerclient"
 )
 
 type AppHandler struct {
 	service *iam.Service
 	cfg     *config.Config
+	worker  *workerclient.Client
 }
 
 func NewAppHandler(service *iam.Service, cfg *config.Config) *AppHandler {
-	return &AppHandler{service: service, cfg: cfg}
+	return &AppHandler{
+		service: service,
+		cfg:     cfg,
+		worker:  workerclient.New(cfg.Worker),
+	}
 }
 
 func (h *AppHandler) Register(app *fiber.App) {
@@ -55,6 +61,18 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/workspaces/:id/invites", h.requireAuth, h.createWorkspaceInvite)
 	api.Delete("/workspaces/:id/invites/:inviteId", h.requireAuth, h.deleteWorkspaceInvite)
 	api.Post("/invites/:token/accept", h.requireAuth, h.acceptInvite)
+	api.Post("/workspaces/:id/provider-accounts", h.requireAuth, h.createProviderAccount)
+	api.Get("/workspaces/:id/provider-accounts", h.requireAuth, h.listProviderAccounts)
+	api.Get("/provider-accounts/:id", h.requireAuth, h.getProviderAccount)
+	api.Post("/provider-accounts/:id/login-sessions", h.requireAuth, h.startProviderLoginSession)
+	api.Get("/provider-accounts/:id/login-sessions/:sessionId", h.requireAuth, h.getProviderLoginSession)
+	api.Post("/workspaces/:id/automations", h.requireAuth, h.createAutomation)
+	api.Get("/workspaces/:id/automations", h.requireAuth, h.listAutomations)
+	api.Get("/workspaces/:id/automation-runs", h.requireAuth, h.listWorkspaceAutomationRuns)
+	api.Post("/automations/:id/runs", h.requireAuth, h.createAutomationRun)
+	api.Get("/automation-runs/:id", h.requireAuth, h.getAutomationRun)
+	api.Get("/automation-runs/:id/outputs", h.requireAuth, h.listAutomationRunOutputs)
+	api.Get("/automation-run-outputs/:id/content", h.requireAuth, h.getAutomationRunOutputContent)
 
 	api.Post("/platform/users", h.requireAuth, h.createPlatformUser)
 	api.Get("/platform/users", h.requireAuth, h.listPlatformUsers)
@@ -69,6 +87,8 @@ func (h *AppHandler) Register(app *fiber.App) {
 	api.Post("/platform/workspaces/:id/members", h.requireAuth, h.createPlatformWorkspaceMember)
 	api.Patch("/platform/workspaces/:id/members/:membershipId", h.requireAuth, h.updatePlatformWorkspaceMember)
 	api.Post("/platform/workspaces/:id/assume-access", h.requireAuth, h.assumeWorkspace)
+
+	app.Post("/api/internal/worker/run-events", h.handleWorkerRunEvent)
 }
 
 func (h *AppHandler) requireAuth(c fiber.Ctx) error {

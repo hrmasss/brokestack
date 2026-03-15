@@ -5,6 +5,13 @@ from brokestack_worker.models import RunPreviewRequest, RunPreviewResponse, Tool
 
 TOOLS = [
     ToolDescriptor(
+        slug="chatgpt-image-automation",
+        name="ChatGPT Image Automation",
+        category="image",
+        runtime="python",
+        description="Generate images through a persisted ChatGPT browser session without requiring an API key.",
+    ),
+    ToolDescriptor(
         slug="logo-generator",
         name="Logo Generator",
         category="image",

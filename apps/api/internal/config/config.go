@@ -13,6 +13,8 @@ type Config struct {
 	Database    DatabaseConfig
 	Auth        AuthConfig
 	Bootstrap   BootstrapConfig
+	Worker      WorkerConfig
+	Storage     StorageConfig
 }
 
 // APIConfig holds API server configuration
@@ -46,6 +48,18 @@ type BootstrapConfig struct {
 	AdminPassword string
 }
 
+// WorkerConfig holds worker integration settings.
+type WorkerConfig struct {
+	URL          string
+	SharedSecret string
+	Timeout      time.Duration
+}
+
+// StorageConfig holds local filesystem storage settings.
+type StorageConfig struct {
+	RootDir string
+}
+
 // Load reads configuration from environment variables
 func Load() *Config {
 	return &Config{
@@ -72,6 +86,14 @@ func Load() *Config {
 			AdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "System Admin"),
 			AdminEmail:    getEnv("BOOTSTRAP_ADMIN_EMAIL", ""),
 			AdminPassword: getEnv("BOOTSTRAP_ADMIN_PASSWORD", ""),
+		},
+		Worker: WorkerConfig{
+			URL:          getEnv("WORKER_URL", "http://127.0.0.1:8091"),
+			SharedSecret: getEnv("WORKER_SHARED_SECRET", "brokestack-worker-local-secret"),
+			Timeout:      getEnvDuration("WORKER_REQUEST_TIMEOUT", 30*time.Second),
+		},
+		Storage: StorageConfig{
+			RootDir: getEnv("STORAGE_ROOT_DIR", ".tmp/storage"),
 		},
 	}
 }

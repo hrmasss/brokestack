@@ -134,3 +134,87 @@ type AuditLog struct {
 	Metadata    string     `bun:"metadata,notnull"`
 	CreatedAt   time.Time  `bun:"created_at,notnull"`
 }
+
+type ProviderAccount struct {
+	bun.BaseModel `bun:"table:provider_accounts"`
+
+	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Provider        string     `bun:"provider,notnull"`
+	Label           string     `bun:"label,notnull"`
+	Status          string     `bun:"status,notnull"`
+	ProfileKey      string     `bun:"profile_key,notnull"`
+	LastValidatedAt *time.Time `bun:"last_validated_at"`
+	LastError       string     `bun:"last_error"`
+	CreatedAt       time.Time  `bun:"created_at,notnull"`
+	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+}
+
+type ProviderLoginSession struct {
+	bun.BaseModel `bun:"table:provider_login_sessions"`
+
+	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
+	ProviderAccountID uuid.UUID  `bun:"provider_account_id,notnull,type:uuid"`
+	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Status            string     `bun:"status,notnull"`
+	WorkerSessionID   string     `bun:"worker_session_id"`
+	StartedAt         time.Time  `bun:"started_at,notnull"`
+	CompletedAt       *time.Time `bun:"completed_at"`
+	ExpiresAt         time.Time  `bun:"expires_at,notnull"`
+	LastError         string     `bun:"last_error"`
+}
+
+type Automation struct {
+	bun.BaseModel `bun:"table:automations"`
+
+	ID                uuid.UUID `bun:"id,pk,type:uuid"`
+	WorkspaceID       uuid.UUID `bun:"workspace_id,notnull,type:uuid"`
+	Kind              string    `bun:"kind,notnull"`
+	ProviderAccountID uuid.UUID `bun:"provider_account_id,notnull,type:uuid"`
+	Name              string    `bun:"name,notnull"`
+	Status            string    `bun:"status,notnull"`
+	ConfigJSON        string    `bun:"config_json,notnull"`
+	CreatedAt         time.Time `bun:"created_at,notnull"`
+	UpdatedAt         time.Time `bun:"updated_at,notnull"`
+}
+
+type AutomationRun struct {
+	bun.BaseModel `bun:"table:automation_runs"`
+
+	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
+	AutomationID      uuid.UUID  `bun:"automation_id,notnull,type:uuid"`
+	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Status            string     `bun:"status,notnull"`
+	PromptText        string     `bun:"prompt_text,notnull"`
+	WorkerRunID       string     `bun:"worker_run_id"`
+	ProviderThreadURL string     `bun:"provider_thread_url"`
+	ProviderThreadID  string     `bun:"provider_thread_id"`
+	QueuedAt          time.Time  `bun:"queued_at,notnull"`
+	StartedAt         *time.Time `bun:"started_at"`
+	CompletedAt       *time.Time `bun:"completed_at"`
+	LastError         string     `bun:"last_error"`
+}
+
+type AutomationRunOutput struct {
+	bun.BaseModel `bun:"table:automation_run_outputs"`
+
+	ID               uuid.UUID `bun:"id,pk,type:uuid"`
+	RunID            uuid.UUID `bun:"run_id,notnull,type:uuid"`
+	WorkspaceID      uuid.UUID `bun:"workspace_id,notnull,type:uuid"`
+	StoragePath      string    `bun:"storage_path,notnull"`
+	MimeType         string    `bun:"mime_type,notnull"`
+	ByteSize         int64     `bun:"byte_size,notnull"`
+	Width            int       `bun:"width,notnull"`
+	Height           int       `bun:"height,notnull"`
+	SHA256           string    `bun:"sha256,notnull"`
+	ProviderAssetURL string    `bun:"provider_asset_url"`
+	CreatedAt        time.Time `bun:"created_at,notnull"`
+}
+
+type WorkerEvent struct {
+	bun.BaseModel `bun:"table:worker_events"`
+
+	EventID   string    `bun:"event_id,pk"`
+	EventType string    `bun:"event_type,notnull"`
+	CreatedAt time.Time `bun:"created_at,notnull"`
+}

@@ -86,3 +86,78 @@ export type PlatformWorkspaceRecord = {
 export type ApiListResponse<T> = {
 	items: T[];
 };
+
+export type ProviderAccount = {
+	id: string;
+	workspaceId: string;
+	provider: string;
+	label: string;
+	status: string;
+	profileKey: string;
+	lastValidatedAt?: string;
+	lastError?: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type ProviderLoginSession = {
+	id: string;
+	providerAccountId: string;
+	workspaceId: string;
+	status: string;
+	workerSessionId?: string;
+	startedAt: string;
+	completedAt?: string;
+	expiresAt: string;
+	lastError?: string;
+};
+
+export type AutomationConfig = {
+	promptTemplate: string;
+	imageCount: number;
+	aspectRatio?: string;
+	provider: string;
+};
+
+export type AutomationRun = {
+	id: string;
+	automationId: string;
+	workspaceId: string;
+	status: string;
+	promptText: string;
+	workerRunId?: string;
+	providerThreadUrl?: string;
+	providerThreadId?: string;
+	queuedAt: string;
+	startedAt?: string;
+	completedAt?: string;
+	lastError?: string;
+};
+
+export type Automation = {
+	id: string;
+	workspaceId: string;
+	kind: string;
+	providerAccountId: string;
+	name: string;
+	status: string;
+	config: AutomationConfig;
+	createdAt: string;
+	updatedAt: string;
+	lastRun?: AutomationRun;
+};
+
+export type AutomationRunOutput = {
+	id: string;
+	runId: string;
+	workspaceId: string;
+	storagePath: string;
+	mimeType: string;
+	byteSize: number;
+	width: number;
+	height: number;
+	sha256: string;
+	providerAssetUrl?: string;
+	createdAt: string;
+	contentUrl: string;
+};
