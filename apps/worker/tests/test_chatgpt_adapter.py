@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from brokestack_worker.config import WorkerSettings
 from brokestack_worker.providers.chatgpt import (
@@ -108,10 +109,9 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
             self.assertTrue(adapter._downloads_finished(session))
 
     def test_detect_chrome_major_version_parses_binary_version_output(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            fake_binary = Path(temp_dir) / "chrome.cmd"
-            fake_binary.write_text("@echo off\r\necho Google Chrome 145.0.7632.160\r\n", encoding="utf-8")
-            self.assertEqual(detect_chrome_major_version(str(fake_binary)), 145)
+        completed = type("CompletedProcess", (), {"stdout": "Google Chrome 145.0.7632.160\n", "stderr": ""})()
+        with patch("brokestack_worker.providers.chatgpt.subprocess.run", return_value=completed):
+            self.assertEqual(detect_chrome_major_version("/tmp/chrome"), 145)
 
     def test_resolve_chrome_binary_path_prefers_existing_configured_path(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
