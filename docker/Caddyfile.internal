@@ -28,7 +28,7 @@ http://app.memofi.tech {
 		redir @app_marketing https://memofi.tech{uri} 302
 
 		root * /srv/brokestack/web/dist
-		try_files {path} {path}/ /index.html
+		try_files {path} {path}/ /app.html
 		file_server
 	}
 }

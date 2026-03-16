@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 
 const distDir = path.resolve(process.cwd(), "dist");
 const templatePath = path.join(distDir, "index.html");
+const appShellPath = path.join(distDir, "app.html");
 const serverEntryPath = path.join(distDir, "server", "entry-server.js");
 
 function escapeHtml(value) {
@@ -56,6 +57,10 @@ function getOutputPath(routePath) {
 
 const template = await readFile(templatePath, "utf8");
 const serverEntry = await import(pathToFileURL(serverEntryPath).href);
+
+// Preserve the plain SPA shell for the app subdomain before marketing prerendering
+// replaces dist/index.html with the homepage HTML.
+await writeFile(appShellPath, template, "utf8");
 
 for (const routePath of serverEntry.marketingPrerenderRoutes) {
 	const { appHtml, seo } = serverEntry.render(routePath);
