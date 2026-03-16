@@ -20,8 +20,7 @@ const migrationTouched = changedFiles.some((file) => file.startsWith("db/migrati
 const schemaRelatedChange = changedFiles.some(
 	(file) =>
 		file.startsWith("apps/api/internal/database/") ||
-		file.startsWith("apps/api/internal/iam/") ||
-		file === "apps/api/cmd/server/main.go",
+		file.startsWith("apps/api/internal/iam/"),
 );
 
 if (schemaRelatedChange && !migrationTouched) {
