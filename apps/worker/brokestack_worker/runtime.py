@@ -368,13 +368,13 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
         const nextFrameUrl = URL.createObjectURL(blob);
         const previousFrameUrl = currentFrameUrl;
         currentFrameUrl = nextFrameUrl;
-        screen.src = nextFrameUrl;
         screen.onload = () => {{
-          overlay("", "", false);
           if (previousFrameUrl) {{
             URL.revokeObjectURL(previousFrameUrl);
           }}
         }};
+        screen.src = nextFrameUrl;
+        overlay("", "", false);
       }} catch (_error) {{
         overlay("Waiting for browser frame...", "Memofi is retrying the browser stream.");
       }}
