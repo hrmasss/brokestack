@@ -1,1 +1,1 @@
-"""BrokeStack worker package."""
+"""Memofi worker package."""

@@ -1,7 +1,7 @@
 /**
  * Theme Context Provider
  * 
- * Provides light/dark mode theming across the BrokeStack marketing pages.
+ * Provides light/dark mode theming across the Memofi marketing pages.
  * Uses localStorage for persistence and system preference as default.
  */
 

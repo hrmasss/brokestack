@@ -112,7 +112,7 @@ function HeroSection() {
 							.
 						</>
 					}
-					description="BrokeStack brings tool runs, workflows, artifacts, usage, and API access into one consistent interface designed for practical operators."
+					description="Memofi brings tool runs, workflows, artifacts, usage, and API access into one consistent interface designed for practical operators."
 				/>
 			</div>
 		</section>
@@ -127,7 +127,7 @@ function WorkflowSection() {
 					<SectionHeading
 						badge={<SectionTag>Operator flow</SectionTag>}
 						title="One place for the full execution cycle."
-						description="BrokeStack keeps inputs, workflows, runs, and usage connected so the team can move without handoff drift."
+						description="Memofi keeps inputs, workflows, runs, and usage connected so the team can move without handoff drift."
 					/>
 					<div className="mt-8 grid gap-4">
 						{workflowHighlights.map((lane) => (
@@ -195,7 +195,7 @@ function SystemSection() {
 						<SectionTag className="mx-auto">What stays connected</SectionTag>
 					}
 					title="A workspace built for clarity under pressure."
-					description="Whether the team is scheduling, reviewing, running, or learning from outputs, BrokeStack keeps the important signals close to the action."
+					description="Whether the team is scheduling, reviewing, running, or learning from outputs, Memofi keeps the important signals close to the action."
 				/>
 				<div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 					{systemBlocks.map((block) => (

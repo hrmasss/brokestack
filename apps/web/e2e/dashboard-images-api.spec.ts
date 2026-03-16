@@ -177,7 +177,7 @@ test("api page can create keys, open docs, submit api jobs, reveal secrets, and 
 	const docsPage = await page.context().newPage();
 	await docsPage.goto("/dashboard/api/docs");
 	await expect(docsPage.getByRole("heading", { name: "API docs", exact: true })).toBeVisible();
-	await expect(docsPage.locator('iframe[title="BrokeStack API reference"]')).toBeVisible();
+	await expect(docsPage.locator('iframe[title="Memofi API reference"]')).toBeVisible();
 	await docsPage.close();
 
 	await page.getByRole("button", { name: "Grid" }).click();

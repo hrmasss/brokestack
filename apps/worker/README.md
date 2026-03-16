@@ -1,6 +1,6 @@
-# BrokeStack Worker
+# Memofi Worker
 
-This service is the Python execution layer for BrokeStack.
+This service is the Python execution layer for Memofi.
 
 It is intentionally small right now:
 

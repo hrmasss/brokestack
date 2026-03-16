@@ -403,7 +403,7 @@ const allPosts: BlogPost[] = [
 		date: "January 29, 2026",
 		isoDate: "2026-01-29",
 		readingTime: "3 min read",
-		author: { name: "BrokeStack Team", initials: "BT", role: "Product Team" },
+		author: { name: "Memofi Team", initials: "MT", role: "Product Team" },
 		tldr: "This product update introduces refined run status states with clearer transitions, improved owner visibility so everyone knows what's blocked, and row-level context that reduces back-and-forth.",
 		chapters: [
 			{ id: "status-states", title: "Refined status states" },
@@ -1301,7 +1301,7 @@ export function BlogDetailPage() {
 								</SectionTag>
 								<h2 className="mt-5 text-2xl font-semibold tracking-tight sm:text-3xl">
 									More insights from the{" "}
-									<span className="text-gradient-brand">BrokeStack blog.</span>
+									<span className="text-gradient-brand">Memofi blog.</span>
 								</h2>
 								<p className="mt-3 text-sm text-muted-foreground md:text-base">
 									Operator frameworks, product updates, and workflow lessons for

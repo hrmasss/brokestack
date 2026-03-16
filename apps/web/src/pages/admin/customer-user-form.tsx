@@ -490,7 +490,7 @@ export function AdminCustomerUserFormPage() {
 										placeholder={defaultWorkspaceName(fullName)}
 									/>
 									<div className="text-sm text-muted-foreground">
-										Leave it blank and BrokeStack will create{" "}
+										Leave it blank and Memofi will create{" "}
 										{defaultWorkspaceName(fullName)}.
 									</div>
 								</div>

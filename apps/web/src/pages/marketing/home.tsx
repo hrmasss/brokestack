@@ -223,7 +223,7 @@ const bigMetrics = [
 const testimonials = [
 	{
 		quote:
-			"BrokeStack replaced three tools and the messy spreadsheet that lived between them. It finally feels like one operating system for our utility stack.",
+			"Memofi replaced three tools and the messy spreadsheet that lived between them. It finally feels like one operating system for our utility stack.",
 		author: "Rina Morales",
 		role: "Operations Lead",
 		company: "Northset",
@@ -299,7 +299,7 @@ const faqs = [
 	{
 		question: "Do you offer a free plan?",
 		answer:
-			"Yes. BrokeStack includes a generous free tier for early workflows, smaller teams, and API experiments. Paid plans stay intentionally cheap and unlock more runs, higher limits, and faster support.",
+			"Yes. Memofi includes a generous free tier for early workflows, smaller teams, and API experiments. Paid plans stay intentionally cheap and unlock more runs, higher limits, and faster support.",
 	},
 	{
 		question: "How does team collaboration work?",
@@ -712,7 +712,7 @@ function FeaturesSection() {
 							</span>
 						</>
 					}
-					description="Stop juggling disconnected tools. BrokeStack unifies your automation workflow into a single, elegant workspace."
+					description="Stop juggling disconnected tools. Memofi unifies your automation workflow into a single, elegant workspace."
 				/>
 
 				<div
@@ -755,7 +755,7 @@ function HowItWorksSection() {
 					align="center"
 					badge={<SectionTag className="mx-auto">Simple to start</SectionTag>}
 					title="Up and running in minutes, not weeks"
-					description="BrokeStack is designed so your team can move fast from day one."
+					description="Memofi is designed so your team can move fast from day one."
 				/>
 
 				<div
@@ -818,7 +818,7 @@ function MetricsSection() {
 								<SectionTag className="mx-auto">Proven results</SectionTag>
 							}
 							title="Numbers that speak for themselves"
-							description="Teams using BrokeStack see measurable improvements from day one."
+							description="Teams using Memofi see measurable improvements from day one."
 						/>
 
 						<div
@@ -868,7 +868,7 @@ function TestimonialsSection() {
 						</SectionTag>
 					}
 					title="Trusted by teams who take operations seriously"
-					description="Don't just take our word for it. Here's what operators say about BrokeStack."
+					description="Don't just take our word for it. Here's what operators say about Memofi."
 				/>
 
 				<div
@@ -992,7 +992,7 @@ function FAQSection() {
 					align="center"
 					badge={<SectionTag className="mx-auto">Questions</SectionTag>}
 					title="Frequently asked questions"
-					description="Everything you need to know about getting started with BrokeStack."
+					description="Everything you need to know about getting started with Memofi."
 				/>
 
 				<div

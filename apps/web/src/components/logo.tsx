@@ -21,7 +21,7 @@ export function Logo({ className, showText = true, size = "md" }: LogoProps) {
 				<>
 					<img
 						src="/branding/heimdall-logo-light.png"
-						alt="BrokeStack"
+						alt="Memofi"
 						width={960}
 						height={203}
 						className="h-auto w-auto shrink-0 dark:hidden"
@@ -29,7 +29,7 @@ export function Logo({ className, showText = true, size = "md" }: LogoProps) {
 					/>
 					<img
 						src="/branding/heimdall-logo-dark.png"
-						alt="BrokeStack"
+						alt="Memofi"
 						width={960}
 						height={203}
 						className="hidden h-auto w-auto shrink-0 dark:block"
@@ -39,7 +39,7 @@ export function Logo({ className, showText = true, size = "md" }: LogoProps) {
 			) : (
 				<img
 					src="/branding/heimdall-icon-512.png"
-					alt="BrokeStack"
+					alt="Memofi"
 					width={512}
 					height={512}
 					className="h-auto w-auto shrink-0"

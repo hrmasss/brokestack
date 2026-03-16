@@ -433,7 +433,7 @@ function TopBar({
 					<Link
 						to="/dashboard"
 						className="inline-flex shrink-0 lg:hidden"
-						aria-label="BrokeStack dashboard home"
+						aria-label="Memofi dashboard home"
 					>
 						<Logo size="sm" showText={false} />
 					</Link>

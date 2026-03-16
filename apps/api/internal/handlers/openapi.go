@@ -22,7 +22,7 @@ func ServeScalarReference(c fiber.Ctx) error {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrokeStack API Reference</title>
+    <title>Memofi API Reference</title>
     <style>
         :root {
             --scalar-background-1: #0a0a0a;
@@ -58,7 +58,7 @@ func ServeScalarReference(c fiber.Ctx) error {
                 clientKey: 'curl'
             },
             metaData: {
-                title: 'BrokeStack API Reference',
+                title: 'Memofi API Reference',
                 description: 'Automation, tools, and workspace control-plane API'
             }
         })

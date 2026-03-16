@@ -77,7 +77,7 @@ export function AdminSettings() {
 										<Label htmlFor="site-name">Site name</Label>
 										<Input
 											id="site-name"
-											defaultValue="BrokeStack"
+											defaultValue="Memofi"
 											className="rounded-xl"
 										/>
 									</div>
@@ -85,7 +85,7 @@ export function AdminSettings() {
 										<Label htmlFor="site-url">Site URL</Label>
 										<Input
 											id="site-url"
-											defaultValue="https://brokestack.app"
+											defaultValue="https://memofi.tech"
 											className="rounded-xl"
 										/>
 									</div>
@@ -93,7 +93,7 @@ export function AdminSettings() {
 										<Label htmlFor="support-email">Support email</Label>
 										<Input
 											id="support-email"
-											defaultValue="support@brokestack.app"
+											defaultValue="support@memofi.tech"
 											className="rounded-xl"
 										/>
 									</div>

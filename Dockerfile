@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS web-builder
 WORKDIR /app
 ARG VITE_API_URL=https://api.memofi.tech
 ARG VITE_SITE_URL=https://memofi.tech
-ARG VITE_APP_NAME=BrokeStack
+ARG VITE_APP_NAME=Memofi
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_SITE_URL=${VITE_SITE_URL}
 ENV VITE_APP_NAME=${VITE_APP_NAME}
@@ -25,7 +25,7 @@ FROM debian:bookworm-slim AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PGDATA=/var/lib/postgresql/data
 LABEL org.opencontainers.image.source="https://github.com/hrmasss/brokestack"
-LABEL org.opencontainers.image.description="BrokeStack production runtime"
+LABEL org.opencontainers.image.description="Memofi production runtime"
 
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \

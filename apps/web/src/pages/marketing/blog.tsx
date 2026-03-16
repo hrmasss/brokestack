@@ -268,7 +268,7 @@ const posts = [
 		date: "January 29, 2026",
 		isoDate: "2026-01-29",
 		readingTime: "3 min read",
-		author: { name: "BrokeStack Team", initials: "BT" },
+		author: { name: "Memofi Team", initials: "MT" },
 	},
 	{
 		slug: "usage-reporting-rhythm",

@@ -63,9 +63,9 @@ function HeroSection() {
 			<div className="page-container section-spacing">
 				<div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
 					<SectionHeading
-						badge={<SectionTag>About BrokeStack</SectionTag>}
+						badge={<SectionTag>About Memofi</SectionTag>}
 						title="Built for teams who treat automation as a real operating discipline."
-						description="BrokeStack is named with a bit of edge, but the product is really about structure: helping teams work in a calmer, more connected way from setup to execution."
+						description="Memofi is built around clarity, structure, and momentum for modern operators: helping teams work in a calmer, more connected way from setup to execution."
 					/>
 					<SurfaceCard tone="strong" className="p-6 md:p-8">
 						<div className="grid gap-4 sm:grid-cols-3">

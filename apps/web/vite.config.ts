@@ -41,7 +41,7 @@ export default defineConfig(({ mode, isSsrBuild }) => {
 		},
 		define: {
 			"import.meta.env.VITE_APP_NAME": JSON.stringify(
-				env.VITE_APP_NAME || "BrokeStack",
+				env.VITE_APP_NAME || "Memofi",
 			),
 		},
 	};

@@ -1,7 +1,7 @@
 [project]
 name = "brokestack-worker"
 version = "0.1.0"
-description = "Python execution worker for BrokeStack tools, workflows, and scheduled jobs"
+description = "Python execution worker for Memofi tools, workflows, and scheduled jobs"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.116.0,<1.0.0",

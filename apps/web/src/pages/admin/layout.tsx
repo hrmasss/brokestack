@@ -449,7 +449,7 @@ function AdminTopBar({
 					<Link
 						to="/admin"
 						className="inline-flex shrink-0 lg:hidden"
-						aria-label="BrokeStack admin home"
+						aria-label="Memofi admin home"
 					>
 						<Logo size="sm" showText={false} />
 					</Link>

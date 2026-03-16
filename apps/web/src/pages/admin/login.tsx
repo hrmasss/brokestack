@@ -80,7 +80,7 @@ export function AdminLoginPage() {
 									Admin Access
 								</h1>
 								<p className="text-sm text-muted-foreground">
-									Sign in to the BrokeStack administration panel to manage users,
+									Sign in to the Memofi administration panel to manage users,
 									subscriptions, tooling operations, and system settings.
 								</p>
 							</div>
@@ -101,7 +101,7 @@ export function AdminLoginPage() {
 												value={email}
 												onChange={(event) => setEmail(event.target.value)}
 												className="h-11 rounded-2xl border-[var(--brand-border-soft)] bg-background/65 pl-10"
-												placeholder="admin@brokestack.app"
+												placeholder="admin@memofi.tech"
 											/>
 										</div>
 									</label>

@@ -117,7 +117,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
 
   const title = isSignup ? "Create your team workspace" : "Welcome back";
   const description = isSignup
-    ? "Start a BrokeStack workspace for tool runs, API access, automation, and shared operational work."
+    ? "Start a Memofi workspace for tool runs, API access, automation, and shared operational work."
     : "Pick up where your team left off with the same runs, workflows, and usage views shown across the product.";
   const primaryLabel = isSignup ? "Create account" : "Continue to dashboard";
   const alternatePrompt = isSignup
@@ -336,7 +336,7 @@ export function AuthView({ mode }: { mode: AuthMode }) {
                             />
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            Leave it blank and BrokeStack will use{" "}
+                            Leave it blank and Memofi will use{" "}
                             {defaultWorkspaceName(fullName)}.
                           </div>
                         </label>

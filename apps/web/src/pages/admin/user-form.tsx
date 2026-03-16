@@ -331,7 +331,7 @@ export function AdminUserFormPage({ mode }: { mode: "create" | "edit" }) {
 									onChange={(event) => setEmail(event.target.value)}
 									className="h-11 rounded-2xl"
 									disabled={!isCreate}
-									placeholder="admin@brokestack.app"
+									placeholder="admin@memofi.tech"
 								/>
 							</div>
 							{isCreate ? (

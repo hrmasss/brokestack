@@ -25,9 +25,9 @@ settings: WorkerSettings = load_settings()
 runtime = WorkerRuntime(settings)
 
 app = FastAPI(
-    title="BrokeStack Worker",
+    title="Memofi Worker",
     version="0.2.0",
-    description="Python execution worker for BrokeStack tools, workflows, and scheduled jobs.",
+    description="Python execution worker for Memofi tools, workflows, and scheduled jobs.",
 )
 
 

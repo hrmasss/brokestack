@@ -43,7 +43,7 @@ export function DashboardApiDocs() {
 			>
 				<div className="overflow-hidden rounded-[28px] border border-[var(--brand-border-soft)] bg-background/80">
 					<iframe
-						title="BrokeStack API reference"
+						title="Memofi API reference"
 						src={docsUrl}
 						className="h-[78vh] w-full border-0 bg-background"
 					/>

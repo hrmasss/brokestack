@@ -77,7 +77,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BrokeStack Remote Browser</title>
+  <title>Memofi Remote Browser</title>
   <style>
     :root {{
       color-scheme: dark;
@@ -234,7 +234,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
       </div>
       <div class="card">
         <div class="eyebrow">Tips</div>
-        <div class="hint">Click inside the browser first, then type. If a passkey or device-bound prompt appears, return to BrokeStack and choose the local-device fallback.</div>
+        <div class="hint">Click inside the browser first, then type. If a passkey or device-bound prompt appears, return to Memofi and choose the local-device fallback.</div>
       </div>
     </aside>
   </div>
@@ -273,7 +273,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
         pageUrl.textContent = payload.currentUrl || "Waiting for page data...";
       }} catch (_error) {{
         sessionStatus.textContent = "disconnected";
-        sessionMessage.textContent = "This browser session is no longer available. Return to BrokeStack and refresh the connection state.";
+        sessionMessage.textContent = "This browser session is no longer available. Return to Memofi and refresh the connection state.";
         sessionMessage.className = "hint danger";
       }}
     }}
@@ -919,7 +919,7 @@ class WorkerRuntime:
             "launching": "Starting an isolated browser for this workspace profile.",
             "ready_for_user": "The embedded browser is ready. Complete the provider login flow here.",
             "auth_in_progress": "Authentication is in progress. Keep following the provider prompts.",
-            "ready": "Connection completed. BrokeStack is closing the interactive browser.",
+            "ready": "Connection completed. Memofi is closing the interactive browser.",
             "failed": "The browser session failed. Return to the app to retry or choose a fallback.",
             "expired": "This browser session expired before login finished.",
         }

@@ -1,6 +1,6 @@
-export const SITE_NAME = "BrokeStack";
+export const SITE_NAME = "Memofi";
 export const SITE_URL =
-	import.meta.env.VITE_SITE_URL?.trim() || "https://brokestack.app";
+	import.meta.env.VITE_SITE_URL?.trim() || "https://memofi.tech";
 export const SITE_IMAGE = `${SITE_URL}/branding/heimdall-icon-512.png`;
 
 export type RouteSeo = {
@@ -30,7 +30,7 @@ const organizationSchema = {
 	url: SITE_URL,
 	logo: `${SITE_URL}/branding/heimdall-logo-dark.png`,
 	description:
-		"BrokeStack is a workspace and API platform for automation, utility tools, scraping flows, and AI-assisted operations.",
+		"Memofi is a workspace and API platform for automation, utility tools, scraping flows, and AI-assisted operations.",
 };
 
 const softwareSchema = {
@@ -41,14 +41,14 @@ const softwareSchema = {
 	operatingSystem: "Web",
 	url: SITE_URL,
 	description:
-		"BrokeStack helps teams run tools, manage API access, automate workflows, and coordinate execution across shared workspaces.",
+		"Memofi helps teams run tools, manage API access, automate workflows, and coordinate execution across shared workspaces.",
 };
 
 const marketingRouteSeo = new Map<string, RouteSeo>([
 	[
 		"/",
 		{
-			title: "BrokeStack | Automation Tools Workspace and API Platform",
+			title: "Memofi | Automation Tools Workspace and API Platform",
 			description:
 				"Run tools, trigger automations, manage API access, and coordinate AI-assisted workflows from one multi-tenant workspace.",
 			path: "/",
@@ -65,9 +65,9 @@ const marketingRouteSeo = new Map<string, RouteSeo>([
 	[
 		"/features",
 		{
-			title: "BrokeStack Features | Tools, Workspaces, APIs, and Automation",
+			title: "Memofi Features | Tools, Workspaces, APIs, and Automation",
 			description:
-				"Explore BrokeStack features for tool runs, shared workspaces, API access, job orchestration, and operator-friendly administration.",
+				"Explore Memofi features for tool runs, shared workspaces, API access, job orchestration, and operator-friendly administration.",
 			path: "/features",
 			keywords: [
 				"automation platform features",
@@ -82,9 +82,9 @@ const marketingRouteSeo = new Map<string, RouteSeo>([
 	[
 		"/pricing",
 		{
-			title: "BrokeStack Pricing | Free Tier and Affordable Paid Plans",
+			title: "Memofi Pricing | Free Tier and Affordable Paid Plans",
 			description:
-				"Compare BrokeStack plans for solo builders, growing teams, and operator-managed organizations using APIs, tools, and automation.",
+				"Compare Memofi plans for solo builders, growing teams, and operator-managed organizations using APIs, tools, and automation.",
 			path: "/pricing",
 			keywords: [
 				"automation tools pricing",
@@ -99,12 +99,12 @@ const marketingRouteSeo = new Map<string, RouteSeo>([
 	[
 		"/about",
 		{
-			title: "About BrokeStack | Built for Practical Automation",
+			title: "About Memofi | Built for Practical Automation",
 			description:
-				"Learn how BrokeStack is building a practical tool platform for automation, APIs, scraping, and operator-managed execution.",
+				"Learn how Memofi is building a practical tool platform for automation, APIs, scraping, and operator-managed execution.",
 			path: "/about",
 			keywords: [
-				"about BrokeStack",
+				"about Memofi",
 				"automation platform company",
 				"tool workspace software",
 				"api operations platform",
@@ -116,9 +116,9 @@ const marketingRouteSeo = new Map<string, RouteSeo>([
 	[
 		"/blog",
 		{
-			title: "BrokeStack Blog | Tooling Notes, Product Updates, and Workflow Guides",
+			title: "Memofi Blog | Tooling Notes, Product Updates, and Workflow Guides",
 			description:
-				"Read BrokeStack updates on automation patterns, API products, tool design, execution infrastructure, and product decisions.",
+				"Read Memofi updates on automation patterns, API products, tool design, execution infrastructure, and product decisions.",
 			path: "/blog",
 			keywords: [
 				"automation engineering blog",
@@ -131,10 +131,10 @@ const marketingRouteSeo = new Map<string, RouteSeo>([
 				{
 					"@context": "https://schema.org",
 					"@type": "Blog",
-					name: "BrokeStack Blog",
+					name: "Memofi Blog",
 					url: `${SITE_URL}/blog`,
 					description:
-						"Product updates, tooling notes, and practical workflow guides from BrokeStack.",
+						"Product updates, tooling notes, and practical workflow guides from Memofi.",
 					publisher: {
 						"@type": "Organization",
 						name: SITE_NAME,
@@ -147,9 +147,9 @@ const marketingRouteSeo = new Map<string, RouteSeo>([
 ]);
 
 const defaultSeo: RouteSeo = {
-	title: "BrokeStack | Automation, APIs, and Shared Tool Workspaces",
+	title: "Memofi | Automation, APIs, and Shared Tool Workspaces",
 	description:
-		"BrokeStack gives teams a practical workspace for automation, tool execution, API access, and operator-managed workflows.",
+		"Memofi gives teams a practical workspace for automation, tool execution, API access, and operator-managed workflows.",
 	path: "/",
 	keywords: [
 		"automation workspace",

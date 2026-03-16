@@ -209,7 +209,7 @@ function PricingSection() {
 								<Link to={plan.id === "enterprise" ? "/about" : "/dashboard"}>
 									{plan.id === "enterprise"
 										? "Talk to sales"
-										: "Start with BrokeStack"}
+										: "Start with Memofi"}
 									<ArrowRight className="size-4" />
 								</Link>
 							</Button>

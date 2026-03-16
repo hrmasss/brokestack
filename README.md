@@ -1,8 +1,8 @@
-# BrokeStack
+# Memofi
 
 > Workspace and API platform for automation, scraping, AI agents, and practical utility tools
 
-BrokeStack is a multi-tenant SaaS product for bundling useful APIs, automations, browser-driven workflows, and AI-assisted tools into one workspace. Customers can run tools from the UI, call them through the API, and manage usage inside shared workspaces. Staff get the usual admin surface for support, billing, maintenance, and troubleshooting.
+Memofi is a multi-tenant SaaS product for bundling useful APIs, automations, browser-driven workflows, and AI-assisted tools into one workspace. Customers can run tools from the UI, call them through the API, and manage usage inside shared workspaces. Staff get the usual admin surface for support, billing, maintenance, and troubleshooting.
 
 The product is intentionally pragmatic:
 
@@ -12,7 +12,7 @@ The product is intentionally pragmatic:
 
 ## Current Direction
 
-BrokeStack is evolving into a toolbox platform rather than a single-purpose app. Example tool categories include:
+Memofi is evolving into a toolbox platform rather than a single-purpose app. Example tool categories include:
 
 - Image and asset utilities such as logo generation and PNG-to-SVG conversion
 - Domain and naming tools such as available domain discovery
@@ -127,5 +127,5 @@ That split keeps the existing SaaS plumbing intact while letting tool developmen
 
 ## Notes
 
-- Current branding assets still use legacy filenames under `apps/web/public/branding`. The UI copy and metadata now identify the product as BrokeStack.
+- Current branding assets still use legacy filenames under `apps/web/public/branding`. The UI copy and metadata now identify the product as Memofi.
 - The Python worker is scaffolded for future scheduling and tool execution, but the Go API remains the main application backend.

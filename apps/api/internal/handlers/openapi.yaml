@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: BrokeStack API
+  title: Memofi API
   version: 0.1.0
   description: |
-    BrokeStack is a multi-tenant platform for automation, utility APIs,
+    Memofi is a multi-tenant platform for automation, utility APIs,
     scraping workflows, AI-assisted tools, and operator-managed workspaces.
     
     ## Platform Areas
@@ -16,8 +16,8 @@ info:
     ## Authentication
     Most endpoints require authentication via Bearer token in the Authorization header.
   contact:
-    name: BrokeStack API Support
-    email: api@brokestack.app
+    name: Memofi API Support
+    email: api@memofi.tech
   license:
     name: MIT
     identifier: MIT

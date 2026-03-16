@@ -57,7 +57,7 @@ type BlogPostRecord = {
 const blogPosts: BlogPostRecord[] = [
 	{
 		id: "post_1",
-		title: "Introducing BrokeStack: A Practical Workspace for Tool Operations",
+		title: "Introducing Memofi: A Practical Workspace for Tool Operations",
 		slug: "introducing-brokestack",
 		author: "Sarah Chen",
 		authorAvatar: "",

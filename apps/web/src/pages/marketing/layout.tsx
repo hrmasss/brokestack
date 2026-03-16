@@ -337,7 +337,7 @@ function Footer() {
 									Blog
 								</Link>
 								<a
-									href="mailto:team@brokestack.app"
+									href="mailto:team@memofi.tech"
 									className="block transition-colors hover:text-foreground"
 								>
 									Contact
@@ -414,7 +414,7 @@ function Footer() {
 
 					<div className="mt-8 flex flex-col gap-3 border-t border-[var(--brand-border-soft)] pt-6 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
 						<div>
-							© {new Date().getFullYear()} BrokeStack. Built for deliberate teams.
+							© {new Date().getFullYear()} Memofi. Built for deliberate teams.
 						</div>
 						<div className="flex items-center gap-4">
 							<div className="flex items-center gap-1.5">

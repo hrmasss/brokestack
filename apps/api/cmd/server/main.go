@@ -103,8 +103,8 @@ func runServe() error {
 	defer cleanup()
 
 	app := fiber.New(fiber.Config{
-		AppName:      "BrokeStack API v0.1.0",
-		ServerHeader: "BrokeStack",
+		AppName:      "Memofi API v0.1.0",
+		ServerHeader: "Memofi",
 		ErrorHandler: func(c fiber.Ctx, err error) error {
 			code := fiber.StatusInternalServerError
 			if e, ok := err.(*fiber.Error); ok {
@@ -131,7 +131,7 @@ func runServe() error {
 	handlers.NewAppHandler(service, cfg).Register(app)
 
 	addr := fmt.Sprintf("%s:%s", cfg.API.Host, cfg.API.Port)
-	log.Printf("BrokeStack API starting on http://%s", addr)
+	log.Printf("Memofi API starting on http://%s", addr)
 	log.Printf("API Reference available at http://%s/reference", addr)
 	log.Printf("OpenAPI spec available at http://%s/openapi.yaml", addr)
 
