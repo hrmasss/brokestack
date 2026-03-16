@@ -128,6 +128,33 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
       cursor: crosshair;
       background: #070f0a;
     }}
+    .screen-overlay {{
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 24px;
+      text-align: center;
+      background:
+        radial-gradient(circle at top, rgba(109, 212, 167, 0.12), transparent 40%),
+        rgba(7, 15, 10, 0.8);
+      pointer-events: none;
+    }}
+    .screen-overlay[hidden] {{
+      display: none;
+    }}
+    .screen-overlay strong {{
+      font-size: 16px;
+      letter-spacing: 0.02em;
+    }}
+    .screen-overlay span {{
+      max-width: 320px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
     .sidebar {{
       border-left: 1px solid var(--border);
       background: rgba(9, 18, 13, 0.92);
@@ -202,6 +229,10 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
     <div class="stage">
       <div class="screen-shell">
         <img id="screen" alt="Remote browser viewport" />
+        <div class="screen-overlay" id="screen-overlay">
+          <strong id="screen-overlay-title">Preparing browser...</strong>
+          <span id="screen-overlay-message">Memofi is starting a private browser session for this workspace profile.</span>
+        </div>
       </div>
     </div>
     <aside class="sidebar">
@@ -249,9 +280,26 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
     const pageTitle = document.getElementById("page-title");
     const pageUrl = document.getElementById("page-url");
     const textInput = document.getElementById("text-input");
+    const screenOverlay = document.getElementById("screen-overlay");
+    const screenOverlayTitle = document.getElementById("screen-overlay-title");
+    const screenOverlayMessage = document.getElementById("screen-overlay-message");
+    let currentSessionStatus = "launching";
+    let currentFrameUrl = "";
 
     function sessionUrl(suffix) {{
       return `${{sessionBasePath}}${{suffix}}?token=${{encodeURIComponent(token)}}`;
+    }}
+
+    function overlay(title, message, visible = true) {{
+      screenOverlayTitle.textContent = title;
+      screenOverlayMessage.textContent = message;
+      screenOverlay.hidden = !visible;
+    }}
+
+    function canRenderFrame() {{
+      return currentSessionStatus === "ready_for_user" ||
+        currentSessionStatus === "auth_in_progress" ||
+        currentSessionStatus === "ready";
     }}
 
     async function post(path, body) {{
@@ -272,20 +320,64 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
           throw new Error("status");
         }}
         const payload = await response.json();
+        currentSessionStatus = payload.sessionStatus || "launching";
         sessionStatus.textContent = payload.sessionStatus.replaceAll("_", " ");
         sessionMessage.textContent = payload.message || "The remote browser is ready for interaction.";
         sessionMessage.className = payload.failed ? "hint danger" : "hint";
         pageTitle.textContent = payload.title || "Untitled page";
         pageUrl.textContent = payload.currentUrl || "Waiting for page data...";
+        if (payload.failed) {{
+          overlay("Browser unavailable", payload.message || "This browser session is no longer available.");
+          return;
+        }}
+        if (canRenderFrame()) {{
+          overlay("Waiting for browser pixels...", "The session is interactive. Memofi is syncing the latest browser frame.");
+          return;
+        }}
+        overlay("Preparing browser...", payload.message || "Memofi is starting the remote browser session.");
       }} catch (_error) {{
+        currentSessionStatus = "disconnected";
         sessionStatus.textContent = "disconnected";
         sessionMessage.textContent = "This browser session is no longer available. Return to Memofi and refresh the connection state.";
         sessionMessage.className = "hint danger";
+        overlay("Session disconnected", "Return to Memofi and start a fresh connection session.");
       }}
     }}
 
-    function refreshFrame() {{
-      screen.src = `${{sessionUrl("/frame")}}&ts=${{Date.now()}}`;
+    async function refreshFrame() {{
+      if (!canRenderFrame()) {{
+        return;
+      }}
+      try {{
+        const response = await fetch(`${{sessionUrl("/frame")}}&ts=${{Date.now()}}`, {{
+          cache: "no-store",
+        }});
+        if (response.status === 409) {{
+          overlay("Preparing browser...", "The browser is still starting up. Memofi will keep trying automatically.");
+          return;
+        }}
+        if (response.status === 404) {{
+          currentSessionStatus = "disconnected";
+          overlay("Session disconnected", "This browser session is no longer available. Refresh the stream from Memofi.");
+          return;
+        }}
+        if (!response.ok) {{
+          throw new Error("frame");
+        }}
+        const blob = await response.blob();
+        const nextFrameUrl = URL.createObjectURL(blob);
+        const previousFrameUrl = currentFrameUrl;
+        currentFrameUrl = nextFrameUrl;
+        screen.src = nextFrameUrl;
+        screen.onload = () => {{
+          overlay("", "", false);
+          if (previousFrameUrl) {{
+            URL.revokeObjectURL(previousFrameUrl);
+          }}
+        }};
+      }} catch (_error) {{
+        overlay("Waiting for browser frame...", "Memofi is retrying the browser stream.");
+      }}
     }}
 
     screen.addEventListener("click", async (event) => {{
@@ -345,9 +437,11 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
     }}
 
     refreshStatus();
-    refreshFrame();
+    void refreshFrame();
     window.setInterval(refreshStatus, 1500);
-    window.setInterval(refreshFrame, 1200);
+    window.setInterval(() => {{
+      void refreshFrame();
+    }}, 1200);
   </script>
 </body>
 </html>"""

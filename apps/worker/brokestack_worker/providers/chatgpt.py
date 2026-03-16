@@ -5,6 +5,7 @@ import mimetypes
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 import uuid
@@ -201,6 +202,61 @@ def profile_appears_locked(profile_dir: Path) -> bool:
     return any((profile_dir / filename).exists() for filename in PROFILE_LOCK_FILENAMES)
 
 
+def process_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def clear_stale_profile_locks(profile_dir: Path) -> bool:
+    if not profile_appears_locked(profile_dir):
+        return False
+
+    current_host = socket.gethostname()
+    should_clear = False
+
+    lock_path = profile_dir / "SingletonLock"
+    if lock_path.is_symlink():
+        try:
+            target = os.readlink(lock_path)
+        except OSError:
+            target = ""
+        match = re.fullmatch(r"(.+)-(\d+)", target)
+        if match is None:
+            should_clear = True
+        else:
+            host = match.group(1)
+            pid = int(match.group(2))
+            should_clear = host != current_host or not process_exists(pid)
+    elif lock_path.exists():
+        should_clear = True
+
+    socket_path = profile_dir / "SingletonSocket"
+    if socket_path.is_symlink():
+        try:
+            socket_target = os.readlink(socket_path)
+        except OSError:
+            socket_target = ""
+        if not socket_target or not Path(socket_target).exists():
+            should_clear = True
+
+    if not should_clear:
+        return False
+
+    cleared = False
+    for filename in PROFILE_LOCK_FILENAMES:
+        target = profile_dir / filename
+        try:
+            if target.is_symlink() or target.exists():
+                target.unlink()
+                cleared = True
+        except OSError:
+            continue
+    return cleared
+
+
 class ChatGPTProviderAdapter:
     def __init__(self, settings: WorkerSettings) -> None:
         self._settings = settings
@@ -356,6 +412,67 @@ class ChatGPTProviderAdapter:
 
         chrome_binary_path = resolve_chrome_binary_path(self._settings.chrome_binary_path)
         chrome_major_version = detect_chrome_major_version(chrome_binary_path)
+        clear_stale_profile_locks(profile_dir)
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                chrome_kwargs = self._build_chrome_launch_kwargs(
+                    profile_dir=profile_dir,
+                    download_dir=download_dir,
+                    chrome_binary_path=chrome_binary_path,
+                    chrome_major_version=chrome_major_version,
+                )
+                driver = uc.Chrome(**chrome_kwargs)
+                break
+            except SessionNotCreatedException as exc:
+                last_error = exc
+                lowered_message = exc.msg.lower()
+                if (
+                    "chrome not reachable" in lowered_message
+                    or "user data directory is already in use" in lowered_message
+                    or "already in use" in lowered_message
+                    or profile_appears_locked(profile_dir)
+                ):
+                    clear_stale_profile_locks(profile_dir)
+                if attempt == 2:
+                    details = []
+                    if chrome_binary_path:
+                        details.append(f"binary={chrome_binary_path}")
+                    if chrome_major_version is not None:
+                        details.append(f"major={chrome_major_version}")
+                    detail_suffix = f" ({', '.join(details)})" if details else ""
+                    extra_hint = ""
+                    if "chrome not reachable" in lowered_message or profile_appears_locked(profile_dir):
+                        extra_hint = (
+                            " The workspace Chrome profile appears to already be open in another Chrome window. "
+                            "Close that window and retry so only one Chrome instance uses the profile at a time."
+                        )
+                    raise RuntimeError(
+                        f"Unable to start Chrome for ChatGPT automation{detail_suffix}: {exc.msg}{extra_hint}"
+                    ) from exc
+                time.sleep(2)
+        else:
+            raise RuntimeError(f"Unable to start Chrome for ChatGPT automation: {last_error}")
+        driver.set_page_load_timeout(30)
+        if download_dir is not None:
+            try:
+                driver.execute_cdp_cmd(
+                    "Page.setDownloadBehavior",
+                    {"behavior": "allow", "downloadPath": str(download_dir.resolve())},
+                )
+            except Exception:
+                pass
+        return driver
+
+    def _build_chrome_launch_kwargs(
+        self,
+        *,
+        profile_dir: Path,
+        download_dir: Path | None,
+        chrome_binary_path: str | None,
+        chrome_major_version: int | None,
+    ) -> dict:
         options = uc.ChromeOptions()
         options.page_load_strategy = "eager"
         options.add_argument(f"--user-data-dir={profile_dir}")
@@ -391,44 +508,7 @@ class ChatGPTProviderAdapter:
             chrome_kwargs["browser_executable_path"] = chrome_binary_path
         if chrome_major_version is not None:
             chrome_kwargs["version_main"] = chrome_major_version
-
-        last_error: Exception | None = None
-        for attempt in range(3):
-            try:
-                driver = uc.Chrome(**chrome_kwargs)
-                break
-            except SessionNotCreatedException as exc:
-                last_error = exc
-                if attempt == 2:
-                    details = []
-                    if chrome_binary_path:
-                        details.append(f"binary={chrome_binary_path}")
-                    if chrome_major_version is not None:
-                        details.append(f"major={chrome_major_version}")
-                    detail_suffix = f" ({', '.join(details)})" if details else ""
-                    extra_hint = ""
-                    lowered_message = exc.msg.lower()
-                    if "chrome not reachable" in lowered_message or profile_appears_locked(profile_dir):
-                        extra_hint = (
-                            " The workspace Chrome profile appears to already be open in another Chrome window. "
-                            "Close that window and retry so only one Chrome instance uses the profile at a time."
-                        )
-                    raise RuntimeError(
-                        f"Unable to start Chrome for ChatGPT automation{detail_suffix}: {exc.msg}{extra_hint}"
-                    ) from exc
-                time.sleep(2)
-        else:
-            raise RuntimeError(f"Unable to start Chrome for ChatGPT automation: {last_error}")
-        driver.set_page_load_timeout(30)
-        if download_dir is not None:
-            try:
-                driver.execute_cdp_cmd(
-                    "Page.setDownloadBehavior",
-                    {"behavior": "allow", "downloadPath": str(download_dir.resolve())},
-                )
-            except Exception:
-                pass
-        return driver
+        return chrome_kwargs
 
     def _has_prompt_box(self, driver: Chrome) -> bool:
         for selector in PROMPT_SELECTORS:

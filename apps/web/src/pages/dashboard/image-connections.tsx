@@ -98,13 +98,21 @@ export function DashboardImageConnections() {
 			void customerRequest<ProviderLoginSession>(
 				`/provider-accounts/${activeLoginSession.providerAccountId}/login-sessions/${activeLoginSession.id}`,
 				{ workspaceId: null },
-			).then((session) => {
-				setActiveLoginSession(session);
-				if (session.sessionStatus === "ready") {
-					setShowLoginPanel(false);
-				}
-				void loadAccounts();
-			});
+			)
+				.then((session) => {
+					setActiveLoginSession(session);
+					if (session.sessionStatus === "ready") {
+						setShowLoginPanel(false);
+					}
+					void loadAccounts();
+				})
+				.catch((pollError) => {
+					setError(
+						pollError instanceof Error
+							? pollError.message
+							: "Unable to refresh the connection session.",
+					);
+				});
 		}, 3000);
 		return () => window.clearInterval(interval);
 	}, [activeLoginSession, customerRequest]);
@@ -360,6 +368,16 @@ export function DashboardImageConnections() {
 							</div>
 
 							<div className="space-y-4">
+								{activeLoginSession.lastError ? (
+									<SurfaceCard tone="muted" className="space-y-2 border-rose-500/20 p-4">
+										<div className="text-sm font-medium text-rose-200">
+											Last connection error
+										</div>
+										<div className="text-sm text-rose-100/90">
+											{activeLoginSession.lastError}
+										</div>
+									</SurfaceCard>
+								) : null}
 								<SurfaceCard tone="muted" className="space-y-3 p-4">
 									<div className="text-sm font-medium">Session lifecycle</div>
 									<div className="text-sm text-muted-foreground">
@@ -482,6 +500,11 @@ export function DashboardImageConnections() {
 														? `Last validated ${formatDashboardDate(account.lastValidatedAt)}`
 														: "This profile has not completed login yet."}
 												</div>
+												{account.lastError ? (
+													<div className="text-sm text-rose-200/90">
+														Last error: {account.lastError}
+													</div>
+												) : null}
 											</div>
 											<div className="flex flex-wrap gap-2">
 												<Button

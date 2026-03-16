@@ -76,7 +76,8 @@ class WorkerRuntimeQueueTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('const sessionBasePath = window.location.pathname.replace(/\\/embed$/, "");', html)
         self.assertIn('fetch(sessionUrl("/status"))', html)
         self.assertIn('sessionUrl("/actions/click")', html)
-        self.assertIn('sessionUrl("/frame")', html)
+        self.assertIn('fetch(`${sessionUrl("/frame")}', html)
+        self.assertIn('const screenOverlay = document.getElementById("screen-overlay");', html)
 
     async def test_calculate_next_ready_at_applies_cooldown_and_jitter(self) -> None:
         runtime = WorkerRuntime(make_settings())

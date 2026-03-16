@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import socket
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +10,7 @@ from unittest.mock import patch
 from brokestack_worker.config import WorkerSettings
 from brokestack_worker.providers.chatgpt import (
     ChatGPTProviderAdapter,
+    clear_stale_profile_locks,
     detect_chrome_major_version,
     html_indicates_generation_in_progress,
     html_indicates_login_ready,
@@ -120,6 +123,65 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
             fake_binary = Path(temp_dir) / "chrome.exe"
             fake_binary.write_bytes(b"")
             self.assertEqual(resolve_chrome_binary_path(str(fake_binary)), str(fake_binary.resolve()))
+
+    def test_build_chrome_launch_kwargs_returns_fresh_options_objects(self) -> None:
+        settings = WorkerSettings(
+            worker_shared_secret="secret",
+            api_base_url="http://localhost:8080",
+            public_base_url="http://localhost:8091",
+            browser_state_dir=Path(".tmp/browser-state"),
+            outputs_dir=Path(".tmp/storage/outputs"),
+            chrome_binary_path=None,
+            chrome_headless=True,
+            chatgpt_base_url="https://chatgpt.com",
+            login_timeout_seconds=10,
+            run_timeout_seconds=10,
+            login_stable_polls=1,
+            dom_poll_interval_seconds=0.5,
+            test_mode=False,
+        )
+        adapter = ChatGPTProviderAdapter(settings)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profile_dir = Path(temp_dir) / "profile"
+            first = adapter._build_chrome_launch_kwargs(
+                profile_dir=profile_dir,
+                download_dir=None,
+                chrome_binary_path=None,
+                chrome_major_version=None,
+            )
+            second = adapter._build_chrome_launch_kwargs(
+                profile_dir=profile_dir,
+                download_dir=None,
+                chrome_binary_path=None,
+                chrome_major_version=None,
+            )
+
+        self.assertIsNot(first["options"], second["options"])
+
+    def test_clear_stale_profile_locks_removes_mismatched_host_symlinks(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks are not supported on this platform")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profile_dir = Path(temp_dir)
+            socket_dir = Path(temp_dir) / "socket-dir"
+            socket_dir.mkdir(parents=True, exist_ok=True)
+            socket_target = socket_dir / "SingletonSocket"
+            socket_target.write_text("")
+
+            try:
+                os.symlink(f"old-host-{os.getpid()}", profile_dir / "SingletonLock")
+                os.symlink("cookie-token", profile_dir / "SingletonCookie")
+                os.symlink(str(socket_target), profile_dir / "SingletonSocket")
+            except OSError as exc:
+                self.skipTest(f"unable to create symlinks on this platform: {exc}")
+
+            self.assertNotEqual("old-host", socket.gethostname())
+            self.assertTrue(clear_stale_profile_locks(profile_dir))
+            self.assertFalse((profile_dir / "SingletonLock").exists())
+            self.assertFalse((profile_dir / "SingletonCookie").exists())
+            self.assertFalse((profile_dir / "SingletonSocket").exists())
 
 
 if __name__ == "__main__":
