@@ -32,6 +32,7 @@ from brokestack_worker.providers.chatgpt import ChatGPTProviderAdapter
 FAKE_PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2Z6l8AAAAASUVORK5CYII="
 )
+BROWSER_START_TIMEOUT_SECONDS = 90.0
 
 
 @dataclass(slots=True)
@@ -567,7 +568,10 @@ class WorkerRuntime:
         adapter = self._resolve_adapter(active_login.provider)
         closed_message: str | None = None
         try:
-            active_login.provider_session = await asyncio.to_thread(adapter.start_login, login_context)
+            active_login.provider_session = await asyncio.wait_for(
+                asyncio.to_thread(adapter.start_login, login_context),
+                timeout=BROWSER_START_TIMEOUT_SECONDS,
+            )
             active_login.session_status = "ready_for_user"
             await self._callbacks.emit_browser_ready_for_user(
                 provider_account_id=active_login.account_id,
@@ -744,7 +748,10 @@ class WorkerRuntime:
         adapter = self._resolve_adapter(request.provider)
 
         try:
-            provider_session = await asyncio.to_thread(adapter.start_run, context)
+            provider_session = await asyncio.wait_for(
+                asyncio.to_thread(adapter.start_run, context),
+                timeout=BROWSER_START_TIMEOUT_SECONDS,
+            )
             active_run = ActiveRun(
                 queued_run=queued_run,
                 provider=request.provider,
