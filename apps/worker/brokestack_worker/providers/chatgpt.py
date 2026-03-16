@@ -199,7 +199,10 @@ def detect_chrome_major_version(binary_path: str | None) -> int | None:
 
 
 def profile_appears_locked(profile_dir: Path) -> bool:
-    return any((profile_dir / filename).exists() for filename in PROFILE_LOCK_FILENAMES)
+    return any(
+        (profile_dir / filename).exists() or (profile_dir / filename).is_symlink()
+        for filename in PROFILE_LOCK_FILENAMES
+    )
 
 
 def process_exists(pid: int) -> bool:

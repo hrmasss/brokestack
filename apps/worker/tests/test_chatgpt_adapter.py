@@ -16,6 +16,7 @@ from brokestack_worker.providers.chatgpt import (
     html_indicates_login_ready,
     html_indicates_logged_out_homepage,
     html_indicates_reauth,
+    profile_appears_locked,
     resolve_chrome_binary_path,
 )
 
@@ -182,6 +183,19 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
             self.assertFalse((profile_dir / "SingletonLock").exists())
             self.assertFalse((profile_dir / "SingletonCookie").exists())
             self.assertFalse((profile_dir / "SingletonSocket").exists())
+
+    def test_profile_appears_locked_detects_broken_symlink_lock_files(self) -> None:
+        if not hasattr(os, "symlink"):
+            self.skipTest("symlinks are not supported on this platform")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profile_dir = Path(temp_dir)
+            try:
+                os.symlink("missing-host-9999", profile_dir / "SingletonLock")
+            except OSError as exc:
+                self.skipTest(f"unable to create symlinks on this platform: {exc}")
+
+            self.assertTrue(profile_appears_locked(profile_dir))
 
 
 if __name__ == "__main__":
