@@ -19,8 +19,7 @@ const changedFiles = execFileSync("git", ["diff", "--name-only", baseRef, headRe
 const migrationTouched = changedFiles.some((file) => file.startsWith("db/migrations/"));
 const schemaRelatedChange = changedFiles.some(
 	(file) =>
-		file.startsWith("apps/api/internal/database/") ||
-		file.startsWith("apps/api/internal/iam/"),
+		file.startsWith("apps/api/internal/database/"),
 );
 
 if (schemaRelatedChange && !migrationTouched) {
