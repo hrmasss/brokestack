@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 import httpx
 import undetected_chromedriver as uc
 from PIL import Image
-from selenium.common.exceptions import NoSuchElementException, SessionNotCreatedException, WebDriverException
+from selenium.common.exceptions import NoSuchElementException, SessionNotCreatedException, TimeoutException, WebDriverException
 from selenium.webdriver import Chrome
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
@@ -207,7 +207,10 @@ class ChatGPTProviderAdapter:
 
     def start_login(self, context: LoginSessionContext) -> ActiveLoginSession:
         driver = self._build_driver(profile_dir=context.account.profile_dir)
-        driver.get(self._settings.chatgpt_base_url)
+        try:
+            driver.get(self._settings.chatgpt_base_url)
+        except TimeoutException:
+            pass
         return ActiveLoginSession(
             context=context,
             driver=driver,
@@ -238,7 +241,10 @@ class ChatGPTProviderAdapter:
 
     def start_run(self, context: RunSessionContext) -> ActiveRunSession:
         driver = self._build_driver(profile_dir=context.account.profile_dir, download_dir=context.download_dir)
-        driver.get(self._settings.chatgpt_base_url)
+        try:
+            driver.get(self._settings.chatgpt_base_url)
+        except TimeoutException:
+            pass
         return ActiveRunSession(
             context=context,
             driver=driver,
@@ -351,6 +357,7 @@ class ChatGPTProviderAdapter:
         chrome_binary_path = resolve_chrome_binary_path(self._settings.chrome_binary_path)
         chrome_major_version = detect_chrome_major_version(chrome_binary_path)
         options = uc.ChromeOptions()
+        options.page_load_strategy = "eager"
         options.add_argument(f"--user-data-dir={profile_dir}")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-dev-shm-usage")
@@ -412,7 +419,7 @@ class ChatGPTProviderAdapter:
                 time.sleep(2)
         else:
             raise RuntimeError(f"Unable to start Chrome for ChatGPT automation: {last_error}")
-        driver.set_page_load_timeout(60)
+        driver.set_page_load_timeout(30)
         if download_dir is not None:
             try:
                 driver.execute_cdp_cmd(
