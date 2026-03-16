@@ -288,7 +288,7 @@ func (s *Service) GetProviderAccount(ctx context.Context, principal *Principal, 
 	return &record, nil
 }
 
-func (s *Service) StartProviderLoginSession(ctx context.Context, principal *Principal, accountID uuid.UUID) (*ProviderLoginSessionRecord, *database.ProviderAccount, error) {
+func (s *Service) StartProviderLoginSession(ctx context.Context, principal *Principal, accountID uuid.UUID) (*ProviderLoginSessionRecord, *ProviderAccountRecord, error) {
 	account, err := s.findProviderAccountByID(ctx, accountID)
 	if err != nil {
 		return nil, nil, err
@@ -334,7 +334,8 @@ func (s *Service) StartProviderLoginSession(ctx context.Context, principal *Prin
 	}
 
 	record := providerLoginSessionRecordFromModel(*session)
-	return &record, account, nil
+	accountRecord := providerAccountRecordFromModel(*account)
+	return &record, &accountRecord, nil
 }
 
 func (s *Service) SyncProviderLoginSessionWorkerState(
@@ -451,6 +452,81 @@ func (s *Service) GetProviderLoginSession(ctx context.Context, principal *Princi
 
 	record := providerLoginSessionRecordFromModel(session)
 	return &record, nil
+}
+
+func (s *Service) GetActiveProviderLoginSession(ctx context.Context, principal *Principal, accountID uuid.UUID) (*ProviderLoginSessionRecord, *ProviderAccountRecord, error) {
+	account, err := s.findProviderAccountByID(ctx, accountID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, err := s.requireWorkspaceAccess(ctx, principal, account.WorkspaceID, "automations.manage"); err != nil {
+		return nil, nil, err
+	}
+	session, err := s.findActiveProviderLoginSession(ctx, account.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	record := providerLoginSessionRecordFromModel(*session)
+	accountRecord := providerAccountRecordFromModel(*account)
+	return &record, &accountRecord, nil
+}
+
+func (s *Service) ExpireProviderLoginSession(
+	ctx context.Context,
+	principal *Principal,
+	accountID uuid.UUID,
+	sessionID uuid.UUID,
+	message string,
+) (*ProviderLoginSessionRecord, *ProviderAccountRecord, error) {
+	account, err := s.findProviderAccountByID(ctx, accountID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if _, err := s.requireWorkspaceAccess(ctx, principal, account.WorkspaceID, "automations.manage"); err != nil {
+		return nil, nil, err
+	}
+	session, err := s.findProviderLoginSessionByID(ctx, sessionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if session.ProviderAccountID != accountID {
+		return nil, nil, ErrForbidden
+	}
+
+	now := time.Now().UTC()
+	update := s.db.NewUpdate().
+		Model((*database.ProviderLoginSession)(nil)).
+		Set("status = ?", accountStatusPendingLogin).
+		Set("stream_session_token = ?", "").
+		Set("stream_url = ?", "").
+		Set("worker_session_id = ?", "").
+		Set("session_status = ?", loginSessionStatusExpired).
+		Set("completed_at = COALESCE(completed_at, ?)", now).
+		Where("id = ?", sessionID).
+		Where("provider_account_id = ?", accountID)
+	if strings.TrimSpace(message) != "" {
+		update = update.Set("last_error = ?", strings.TrimSpace(message))
+	}
+	if _, err := update.Exec(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	if _, err := s.db.NewUpdate().
+		Model((*database.ProviderAccount)(nil)).
+		Set("status = ?", accountStatusPendingLogin).
+		Set("last_error = ?", "").
+		Set("updated_at = ?", now).
+		Where("id = ?", accountID).
+		Exec(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	record, err := s.GetProviderLoginSession(ctx, principal, accountID, sessionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	accountRecord := providerAccountRecordFromModel(*account)
+	return record, &accountRecord, nil
 }
 
 func (s *Service) RefreshProviderLoginSessionStream(

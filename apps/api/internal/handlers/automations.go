@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,19 +80,64 @@ func (h *AppHandler) startProviderLoginSession(c fiber.Ctx) error {
 		return h.writeError(c, err)
 	}
 	session, account, err := h.service.StartProviderLoginSession(c.Context(), principal, accountID)
-	if err != nil {
+	if err == nil {
+		record, launchErr := h.launchProviderLoginSession(c, session, account)
+		if launchErr != nil {
+			return h.writeError(c, launchErr)
+		}
+		return c.Status(fiber.StatusCreated).JSON(record)
+	}
+	if !errors.Is(err, iam.ErrConflict) {
 		return h.writeError(c, err)
 	}
 
+	activeSession, activeAccount, err := h.service.GetActiveProviderLoginSession(c.Context(), principal, accountID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	resumed, err := h.resumeProviderLoginSession(c, principal, activeSession)
+	if err == nil {
+		return c.JSON(resumed)
+	}
+	if !workerclient.IsStatus(err, http.StatusNotFound) && !workerclient.IsStatus(err, http.StatusConflict) {
+		return h.writeError(c, err)
+	}
+
+	if _, _, expireErr := h.service.ExpireProviderLoginSession(
+		c.Context(),
+		principal,
+		mustParseID(activeAccount.ID),
+		mustParseID(activeSession.ID),
+		"Previous browser session was no longer available. Memofi started a fresh connection session.",
+	); expireErr != nil {
+		return h.writeError(c, expireErr)
+	}
+
+	session, account, err = h.service.StartProviderLoginSession(c.Context(), principal, accountID)
+	if err != nil {
+		return h.writeError(c, err)
+	}
+	record, launchErr := h.launchProviderLoginSession(c, session, account)
+	if launchErr != nil {
+		return h.writeError(c, launchErr)
+	}
+	return c.Status(fiber.StatusCreated).JSON(record)
+}
+
+func (h *AppHandler) launchProviderLoginSession(
+	c fiber.Ctx,
+	session *iam.ProviderLoginSessionRecord,
+	account *iam.ProviderAccountRecord,
+) (*iam.ProviderLoginSessionRecord, error) {
 	workerResponse, err := h.worker.StartLoginSession(c.Context(), workerclient.StartLoginSessionRequest{
 		LoginSessionID:    session.ID,
-		ProviderAccountID: account.ID.String(),
-		WorkspaceID:       account.WorkspaceID.String(),
+		ProviderAccountID: account.ID,
+		WorkspaceID:       account.WorkspaceID,
 		Provider:          account.Provider,
 		ProfileKey:        account.ProfileKey,
 	})
 	if err != nil {
-		return h.writeError(c, fmt.Errorf("%w: unable to start browser login session", err))
+		return nil, fmt.Errorf("%w: unable to start browser login session", err)
 	}
 
 	if err := h.service.SyncProviderLoginSessionWorkerState(
@@ -108,7 +154,7 @@ func (h *AppHandler) startProviderLoginSession(c fiber.Ctx) error {
 		workerResponse.Region,
 		workerResponse.NodeName,
 	); err != nil {
-		return h.writeError(c, err)
+		return nil, err
 	}
 	session.WorkerSessionID = workerResponse.WorkerSessionID
 	session.BrowserInstanceID = workerResponse.BrowserInstanceID
@@ -120,8 +166,33 @@ func (h *AppHandler) startProviderLoginSession(c fiber.Ctx) error {
 	if workerResponse.SessionStatus != "" {
 		session.SessionStatus = workerResponse.SessionStatus
 	}
+	return session, nil
+}
 
-	return c.Status(fiber.StatusCreated).JSON(session)
+func (h *AppHandler) resumeProviderLoginSession(
+	c fiber.Ctx,
+	principal *iam.Principal,
+	session *iam.ProviderLoginSessionRecord,
+) (*iam.ProviderLoginSessionRecord, error) {
+	if strings.TrimSpace(session.WorkerSessionID) == "" {
+		return nil, &workerclient.StatusError{StatusCode: http.StatusNotFound}
+	}
+	workerResponse, err := h.worker.RefreshLoginSessionStream(c.Context(), session.WorkerSessionID)
+	if err != nil {
+		return nil, err
+	}
+	record, err := h.service.RefreshProviderLoginSessionStream(
+		c.Context(),
+		principal,
+		mustParseID(session.ProviderAccountID),
+		mustParseID(session.ID),
+		workerResponse.StreamSessionToken,
+		workerResponse.StreamURL,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return record, nil
 }
 
 func (h *AppHandler) getProviderLoginSession(c fiber.Ctx) error {
@@ -161,25 +232,36 @@ func (h *AppHandler) refreshProviderLoginSessionStream(c fiber.Ctx) error {
 	if err != nil {
 		return h.writeError(c, err)
 	}
-	if strings.TrimSpace(session.WorkerSessionID) == "" {
-		return h.writeError(c, fmt.Errorf("%w: login session does not have an active worker browser session", iam.ErrConflict))
+	record, err := h.resumeProviderLoginSession(c, principal, session)
+	if err == nil {
+		return c.JSON(record)
 	}
-	workerResponse, err := h.worker.RefreshLoginSessionStream(c.Context(), session.WorkerSessionID)
-	if err != nil {
+	if !workerclient.IsStatus(err, http.StatusNotFound) && !workerclient.IsStatus(err, http.StatusConflict) {
+		if strings.TrimSpace(session.WorkerSessionID) == "" {
+			return h.writeError(c, fmt.Errorf("%w: login session does not have an active worker browser session", iam.ErrConflict))
+		}
 		return h.writeError(c, fmt.Errorf("%w: unable to refresh browser stream", err))
 	}
-	record, err := h.service.RefreshProviderLoginSessionStream(
+
+	if _, _, expireErr := h.service.ExpireProviderLoginSession(
 		c.Context(),
 		principal,
 		accountID,
 		sessionID,
-		workerResponse.StreamSessionToken,
-		workerResponse.StreamURL,
-	)
+		"Previous browser session was no longer available. Memofi started a fresh connection session.",
+	); expireErr != nil {
+		return h.writeError(c, expireErr)
+	}
+
+	newSession, freshAccount, err := h.service.StartProviderLoginSession(c.Context(), principal, accountID)
 	if err != nil {
 		return h.writeError(c, err)
 	}
-	return c.JSON(record)
+	launchedSession, launchErr := h.launchProviderLoginSession(c, newSession, freshAccount)
+	if launchErr != nil {
+		return h.writeError(c, launchErr)
+	}
+	return c.JSON(launchedSession)
 }
 
 func (h *AppHandler) startProviderLoginLocalBridge(c fiber.Ctx) error {

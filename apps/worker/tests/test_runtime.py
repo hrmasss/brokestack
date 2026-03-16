@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from brokestack_worker.config import WorkerSettings
 from brokestack_worker.models import StartImageJobRequest
-from brokestack_worker.runtime import QueuedRun, WorkerRuntime
+from brokestack_worker.runtime import QueuedRun, WorkerRuntime, render_browser_embed_page
 
 
 class CallbackRecorder:
@@ -70,6 +70,14 @@ def make_request(run_id: str, provider_account_id: str = "account-1") -> StartIm
 
 
 class WorkerRuntimeQueueTests(unittest.IsolatedAsyncioTestCase):
+    def test_browser_embed_page_uses_iframe_relative_worker_paths(self) -> None:
+        html = render_browser_embed_page("worker-session-1", "stream-token-1")
+
+        self.assertIn('const sessionBasePath = window.location.pathname.replace(/\\/embed$/, "");', html)
+        self.assertIn('fetch(sessionUrl("/status"))', html)
+        self.assertIn('sessionUrl("/actions/click")', html)
+        self.assertIn('sessionUrl("/frame")', html)
+
     async def test_calculate_next_ready_at_applies_cooldown_and_jitter(self) -> None:
         runtime = WorkerRuntime(make_settings())
         queued_run = QueuedRun(request=make_request("run-1"), worker_run_id="worker-1")

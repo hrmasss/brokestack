@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -26,6 +27,19 @@ func New(cfg config.WorkerConfig) *Client {
 			Timeout: cfg.Timeout,
 		},
 	}
+}
+
+type StatusError struct {
+	StatusCode int
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("worker request failed: status %d", e.StatusCode)
+}
+
+func IsStatus(err error, statusCode int) bool {
+	var statusErr *StatusError
+	return errors.As(err, &statusErr) && statusErr.StatusCode == statusCode
 }
 
 type StartLoginSessionRequest struct {
@@ -135,7 +149,7 @@ func (c *Client) post(ctx context.Context, path string, payload any, target any)
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("worker request failed: status %d", resp.StatusCode)
+		return &StatusError{StatusCode: resp.StatusCode}
 	}
 
 	if target == nil {

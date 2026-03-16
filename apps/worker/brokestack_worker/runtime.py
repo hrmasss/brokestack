@@ -241,12 +241,17 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
   <script>
     const workerSessionId = "{escaped_session_id}";
     const token = "{escaped_token}";
+    const sessionBasePath = window.location.pathname.replace(/\/embed$/, "");
     const screen = document.getElementById("screen");
     const sessionStatus = document.getElementById("session-status");
     const sessionMessage = document.getElementById("session-message");
     const pageTitle = document.getElementById("page-title");
     const pageUrl = document.getElementById("page-url");
     const textInput = document.getElementById("text-input");
+
+    function sessionUrl(suffix) {{
+      return `${{sessionBasePath}}${{suffix}}?token=${{encodeURIComponent(token)}}`;
+    }}
 
     async function post(path, body) {{
       const response = await fetch(path, {{
@@ -261,7 +266,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
 
     async function refreshStatus() {{
       try {{
-        const response = await fetch(`/browser-sessions/${{workerSessionId}}/status?token=${{encodeURIComponent(token)}}`);
+        const response = await fetch(sessionUrl("/status"));
         if (!response.ok) {{
           throw new Error("status");
         }}
@@ -279,7 +284,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
     }}
 
     function refreshFrame() {{
-      screen.src = `/browser-sessions/${{workerSessionId}}/frame?token=${{encodeURIComponent(token)}}&ts=${{Date.now()}}`;
+      screen.src = `${{sessionUrl("/frame")}}&ts=${{Date.now()}}`;
     }}
 
     screen.addEventListener("click", async (event) => {{
@@ -289,7 +294,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
       const x = Math.max(0, Math.round((event.clientX - bounds.left) * (naturalWidth / bounds.width)));
       const y = Math.max(0, Math.round((event.clientY - bounds.top) * (naturalHeight / bounds.height)));
       try {{
-        await post(`/browser-sessions/${{workerSessionId}}/actions/click?token=${{encodeURIComponent(token)}}`, {{ x, y }});
+        await post(sessionUrl("/actions/click"), {{ x, y }});
         window.setTimeout(refreshFrame, 120);
       }} catch (_error) {{
         sessionMessage.textContent = "Unable to send the click to the remote browser.";
@@ -300,7 +305,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
     screen.addEventListener("wheel", async (event) => {{
       event.preventDefault();
       try {{
-        await post(`/browser-sessions/${{workerSessionId}}/actions/scroll?token=${{encodeURIComponent(token)}}`, {{ deltaY: event.deltaY }});
+        await post(sessionUrl("/actions/scroll"), {{ deltaY: event.deltaY }});
         window.setTimeout(refreshFrame, 120);
       }} catch (_error) {{
         sessionMessage.textContent = "Unable to scroll the remote browser.";
@@ -314,7 +319,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
         return;
       }}
       try {{
-        await post(`/browser-sessions/${{workerSessionId}}/actions/type?token=${{encodeURIComponent(token)}}`, {{ text }});
+        await post(sessionUrl("/actions/type"), {{ text }});
         window.setTimeout(refreshFrame, 120);
       }} catch (_error) {{
         sessionMessage.textContent = "Unable to type into the remote browser.";
@@ -329,7 +334,7 @@ def render_browser_embed_page(worker_session_id: str, token: str) -> str:
     for (const button of document.querySelectorAll("[data-key]")) {{
       button.addEventListener("click", async () => {{
         try {{
-          await post(`/browser-sessions/${{workerSessionId}}/actions/key?token=${{encodeURIComponent(token)}}`, {{ key: button.getAttribute("data-key") }});
+          await post(sessionUrl("/actions/key"), {{ key: button.getAttribute("data-key") }});
           window.setTimeout(refreshFrame, 120);
         }} catch (_error) {{
           sessionMessage.textContent = "Unable to send that key to the remote browser.";
