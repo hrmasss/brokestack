@@ -46,6 +46,7 @@ class WorkerSettings:
     run_timeout_seconds: int
     login_stable_polls: int
     dom_poll_interval_seconds: float
+    test_mode: bool
 
 
 def load_settings() -> WorkerSettings:
@@ -64,4 +65,5 @@ def load_settings() -> WorkerSettings:
         run_timeout_seconds=_get_int("WORKER_RUN_TIMEOUT_SECONDS", 900),
         login_stable_polls=max(1, _get_int("WORKER_LOGIN_STABLE_POLLS", 3)),
         dom_poll_interval_seconds=max(0.5, _get_float("WORKER_DOM_POLL_INTERVAL_SECONDS", 2.0)),
+        test_mode=_get_bool("WORKER_TEST_MODE", False),
     )

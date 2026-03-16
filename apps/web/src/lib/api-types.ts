@@ -94,6 +94,10 @@ export type ProviderAccount = {
 	label: string;
 	status: string;
 	profileKey: string;
+	cooldownSeconds: number;
+	jitterMinSeconds: number;
+	jitterMaxSeconds: number;
+	isDefaultForApi: boolean;
 	lastValidatedAt?: string;
 	lastError?: string;
 	createdAt: string;
@@ -178,4 +182,81 @@ export type AutomationRunOutput = {
 	providerAssetUrl?: string;
 	createdAt: string;
 	contentUrl: string;
+};
+
+export type ImageBatch = {
+	id: string;
+	workspaceId: string;
+	providerAccountId: string;
+	title: string;
+	promptTemplate: string;
+	placeholderName: string;
+	source: string;
+	status: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type ImageJob = {
+	id: string;
+	workspaceId: string;
+	providerAccountId: string;
+	provider: string;
+	providerLabel: string;
+	batchId?: string;
+	apiKeyId?: string;
+	source: string;
+	requestType: string;
+	title: string;
+	promptText: string;
+	aspectRatio?: string;
+	status: string;
+	workerRunId?: string;
+	providerThreadUrl?: string;
+	providerThreadId?: string;
+	queuedAt: string;
+	startedAt?: string;
+	completedAt?: string;
+	lastError?: string;
+	outputCount: number;
+};
+
+export type ImageOutput = {
+	id: string;
+	imageJobId: string;
+	workspaceId: string;
+	storagePath: string;
+	mimeType: string;
+	byteSize: number;
+	width: number;
+	height: number;
+	sha256: string;
+	providerAssetUrl?: string;
+	createdAt: string;
+	contentUrl: string;
+};
+
+export type ImageBatchResult = {
+	batch: ImageBatch;
+	jobs: ImageJob[];
+};
+
+export type WorkspaceApiKey = {
+	id: string;
+	workspaceId: string;
+	name: string;
+	keyPrefix: string;
+	status: string;
+	scopes: string[];
+	requestsPerMinute: number;
+	dailyImageQuota: number;
+	lastUsedAt?: string;
+	lastUsedIp?: string;
+	createdAt: string;
+	updatedAt: string;
+};
+
+export type CreatedWorkspaceApiKey = {
+	apiKey: WorkspaceApiKey;
+	secret: string;
 };

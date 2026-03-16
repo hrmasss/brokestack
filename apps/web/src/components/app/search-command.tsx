@@ -123,6 +123,24 @@ export function SearchCommand({
 			onSelect: () => navigateTo("/dashboard/analytics"),
 		},
 		{
+			id: "nav-images",
+			icon: WandSparkles,
+			label: "Images",
+			subtitle: "Review generated images from the web flow and API.",
+			keywords: ["images", "generation", "art", "batch", "prompts"],
+			section: "navigate",
+			onSelect: () => navigateTo("/dashboard/images"),
+		},
+		{
+			id: "nav-api",
+			icon: Settings,
+			label: "API",
+			subtitle: "Manage workspace API keys, quotas, and docs.",
+			keywords: ["api", "keys", "docs", "quotas", "integrations"],
+			section: "navigate",
+			onSelect: () => navigateTo("/dashboard/api"),
+		},
+		{
 			id: "nav-library",
 			icon: FolderKanban,
 			label: "Artifacts",
@@ -168,6 +186,16 @@ export function SearchCommand({
 			section: "search",
 			onSelect: () => navigateTo("/dashboard/library"),
 			shortcut: "Artifacts",
+		},
+		{
+			id: "search-images",
+			icon: WandSparkles,
+			label: "Find image jobs",
+			subtitle: "Open the Images table to inspect web and API generations.",
+			keywords: ["images", "jobs", "generation", "api", "web"],
+			section: "search",
+			onSelect: () => navigateTo("/dashboard/images"),
+			shortcut: "Images",
 		},
 		{
 			id: "search-teammates",
@@ -325,6 +353,10 @@ function getPath(entryId: string) {
 			return "/dashboard/calendar";
 		case "nav-analytics":
 			return "/dashboard/analytics";
+		case "nav-images":
+			return "/dashboard/images";
+		case "nav-api":
+			return "/dashboard/api";
 		case "nav-library":
 			return "/dashboard/library";
 		case "nav-team":

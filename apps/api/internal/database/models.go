@@ -138,16 +138,20 @@ type AuditLog struct {
 type ProviderAccount struct {
 	bun.BaseModel `bun:"table:provider_accounts"`
 
-	ID              uuid.UUID  `bun:"id,pk,type:uuid"`
-	WorkspaceID     uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
-	Provider        string     `bun:"provider,notnull"`
-	Label           string     `bun:"label,notnull"`
-	Status          string     `bun:"status,notnull"`
-	ProfileKey      string     `bun:"profile_key,notnull"`
-	LastValidatedAt *time.Time `bun:"last_validated_at"`
-	LastError       string     `bun:"last_error"`
-	CreatedAt       time.Time  `bun:"created_at,notnull"`
-	UpdatedAt       time.Time  `bun:"updated_at,notnull"`
+	ID               uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID      uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Provider         string     `bun:"provider,notnull"`
+	Label            string     `bun:"label,notnull"`
+	Status           string     `bun:"status,notnull"`
+	ProfileKey       string     `bun:"profile_key,notnull"`
+	CooldownSeconds  int        `bun:"cooldown_seconds,notnull"`
+	JitterMinSeconds int        `bun:"jitter_min_seconds,notnull"`
+	JitterMaxSeconds int        `bun:"jitter_max_seconds,notnull"`
+	IsDefaultForAPI  bool       `bun:"is_default_for_api,notnull"`
+	LastValidatedAt  *time.Time `bun:"last_validated_at"`
+	LastError        string     `bun:"last_error"`
+	CreatedAt        time.Time  `bun:"created_at,notnull"`
+	UpdatedAt        time.Time  `bun:"updated_at,notnull"`
 }
 
 type ProviderLoginSession struct {
@@ -247,6 +251,84 @@ type AutomationRunOutput struct {
 	SHA256           string    `bun:"sha256,notnull"`
 	ProviderAssetURL string    `bun:"provider_asset_url"`
 	CreatedAt        time.Time `bun:"created_at,notnull"`
+}
+
+type ImageBatch struct {
+	bun.BaseModel `bun:"table:image_batches"`
+
+	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	ProviderAccountID uuid.UUID  `bun:"provider_account_id,notnull,type:uuid"`
+	Title             string     `bun:"title,notnull"`
+	PromptTemplate    string     `bun:"prompt_template,notnull"`
+	PlaceholderName   string     `bun:"placeholder_name,notnull"`
+	Source            string     `bun:"source,notnull"`
+	Status            string     `bun:"status,notnull"`
+	CreatedByUserID   *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	APIKeyID          *uuid.UUID `bun:"api_key_id,type:uuid"`
+	CreatedAt         time.Time  `bun:"created_at,notnull"`
+	UpdatedAt         time.Time  `bun:"updated_at,notnull"`
+}
+
+type ImageJob struct {
+	bun.BaseModel `bun:"table:image_jobs"`
+
+	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	ProviderAccountID uuid.UUID  `bun:"provider_account_id,notnull,type:uuid"`
+	BatchID           *uuid.UUID `bun:"batch_id,type:uuid"`
+	APIKeyID          *uuid.UUID `bun:"api_key_id,type:uuid"`
+	Source            string     `bun:"source,notnull"`
+	RequestType       string     `bun:"request_type,notnull"`
+	Title             string     `bun:"title,notnull"`
+	PromptText        string     `bun:"prompt_text,notnull"`
+	AspectRatio       string     `bun:"aspect_ratio"`
+	Status            string     `bun:"status,notnull"`
+	WorkerRunID       string     `bun:"worker_run_id"`
+	ProviderThreadURL string     `bun:"provider_thread_url"`
+	ProviderThreadID  string     `bun:"provider_thread_id"`
+	QueuedAt          time.Time  `bun:"queued_at,notnull"`
+	StartedAt         *time.Time `bun:"started_at"`
+	CompletedAt       *time.Time `bun:"completed_at"`
+	LastError         string     `bun:"last_error"`
+	CreatedAt         time.Time  `bun:"created_at,notnull"`
+	UpdatedAt         time.Time  `bun:"updated_at,notnull"`
+}
+
+type ImageOutput struct {
+	bun.BaseModel `bun:"table:image_outputs"`
+
+	ID               uuid.UUID `bun:"id,pk,type:uuid"`
+	ImageJobID       uuid.UUID `bun:"image_job_id,notnull,type:uuid"`
+	WorkspaceID      uuid.UUID `bun:"workspace_id,notnull,type:uuid"`
+	StoragePath      string    `bun:"storage_path,notnull"`
+	MimeType         string    `bun:"mime_type,notnull"`
+	ByteSize         int64     `bun:"byte_size,notnull"`
+	Width            int       `bun:"width,notnull"`
+	Height           int       `bun:"height,notnull"`
+	SHA256           string    `bun:"sha256,notnull"`
+	ProviderAssetURL string    `bun:"provider_asset_url"`
+	CreatedAt        time.Time `bun:"created_at,notnull"`
+}
+
+type WorkspaceAPIKey struct {
+	bun.BaseModel `bun:"table:workspace_api_keys"`
+
+	ID                uuid.UUID  `bun:"id,pk,type:uuid"`
+	WorkspaceID       uuid.UUID  `bun:"workspace_id,notnull,type:uuid"`
+	Name              string     `bun:"name,notnull"`
+	KeyPrefix         string     `bun:"key_prefix,notnull"`
+	KeyHash           string     `bun:"key_hash,notnull"`
+	Status            string     `bun:"status,notnull"`
+	ScopesJSON        string     `bun:"scopes_json,notnull"`
+	RequestsPerMinute int        `bun:"requests_per_minute,notnull"`
+	DailyImageQuota   int        `bun:"daily_image_quota,notnull"`
+	LastUsedAt        *time.Time `bun:"last_used_at"`
+	LastUsedIP        string     `bun:"last_used_ip"`
+	CreatedByUserID   *uuid.UUID `bun:"created_by_user_id,type:uuid"`
+	RevokedAt         *time.Time `bun:"revoked_at"`
+	CreatedAt         time.Time  `bun:"created_at,notnull"`
+	UpdatedAt         time.Time  `bun:"updated_at,notnull"`
 }
 
 type WorkerEvent struct {

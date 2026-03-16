@@ -75,6 +75,10 @@ type StartAutomationRunResponse struct {
 	Status      string `json:"status"`
 }
 
+type StartImageJobRequest = StartAutomationRunRequest
+
+type StartImageJobResponse = StartAutomationRunResponse
+
 func (c *Client) StartLoginSession(ctx context.Context, payload StartLoginSessionRequest) (*StartLoginSessionResponse, error) {
 	response := &StartLoginSessionResponse{}
 	if err := c.post(ctx, "/provider-accounts/login-sessions", payload, response); err != nil {
@@ -86,6 +90,14 @@ func (c *Client) StartLoginSession(ctx context.Context, payload StartLoginSessio
 func (c *Client) StartAutomationRun(ctx context.Context, payload StartAutomationRunRequest) (*StartAutomationRunResponse, error) {
 	response := &StartAutomationRunResponse{}
 	if err := c.post(ctx, "/automation-runs", payload, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (c *Client) StartImageJob(ctx context.Context, payload StartImageJobRequest) (*StartImageJobResponse, error) {
+	response := &StartImageJobResponse{}
+	if err := c.post(ctx, "/image-jobs", payload, response); err != nil {
 		return nil, err
 	}
 	return response, nil

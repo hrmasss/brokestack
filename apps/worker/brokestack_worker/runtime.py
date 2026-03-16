@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import html
+import random
 import socket
 import uuid
 from collections import defaultdict, deque
@@ -17,11 +20,18 @@ from brokestack_worker.models import (
     RefreshLoginSessionStreamResponse,
     StartAutomationRunRequest,
     StartAutomationRunResponse,
+    StartImageJobRequest,
+    StartImageJobResponse,
     StartLoginSessionRequest,
     StartLoginSessionResponse,
+    WorkerOutputPayload,
 )
 from brokestack_worker.providers.base import LoginSessionContext, ProviderAccountContext, RunSessionContext
 from brokestack_worker.providers.chatgpt import ChatGPTProviderAdapter
+
+FAKE_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2Z6l8AAAAASUVORK5CYII="
+)
 
 
 @dataclass(slots=True)
@@ -347,6 +357,7 @@ class WorkerRuntime:
         self._active_login_accounts: set[str] = set()
         self._active_run_accounts: set[str] = set()
         self._active_logins_by_worker_session: dict[str, ActiveLogin] = {}
+        self._account_next_run_ready_at: dict[str, float] = {}
         self._node_name = socket.gethostname()
 
     def registered_tools(self) -> int:
@@ -544,6 +555,9 @@ class WorkerRuntime:
 
         return StartAutomationRunResponse(workerRunId=worker_run_id, status="queued")
 
+    async def start_image_job(self, request: StartImageJobRequest) -> StartImageJobResponse:
+        return await self.start_automation_run(request)
+
     async def _launch_and_watch_login(self, active_login: ActiveLogin, login_context: LoginSessionContext) -> None:
         adapter = self._resolve_adapter(active_login.provider)
         closed_message: str | None = None
@@ -681,16 +695,24 @@ class WorkerRuntime:
             while self._account_queues[account_id]:
                 while account_id in self._active_login_accounts:
                     await asyncio.sleep(self._settings.dom_poll_interval_seconds)
+                next_ready_at = self._account_next_run_ready_at.get(account_id)
+                if next_ready_at is not None:
+                    remaining = next_ready_at - asyncio.get_running_loop().time()
+                    if remaining > 0:
+                        await asyncio.sleep(remaining)
                 queued_run = self._account_queues[account_id].popleft()
                 self._active_run_accounts.add(account_id)
-                await self._execute_run(queued_run)
+                try:
+                    await self._execute_run(queued_run)
+                finally:
+                    self._account_next_run_ready_at[account_id] = self._calculate_next_ready_at(queued_run)
         finally:
             self._active_run_accounts.discard(account_id)
+            self._account_next_run_ready_at.pop(account_id, None)
             self._account_processors.pop(account_id, None)
 
     async def _execute_run(self, queued_run: QueuedRun) -> None:
         request = queued_run.request
-        adapter = self._resolve_adapter(request.provider)
         account = self._account_context(
             provider_account_id=request.provider_account_id,
             workspace_id=request.workspace_id,
@@ -710,6 +732,11 @@ class WorkerRuntime:
             final_output_dir=final_output_dir,
             metadata=request.metadata,
         )
+        if self._settings.test_mode:
+            await self._execute_fake_run(context)
+            return
+
+        adapter = self._resolve_adapter(request.provider)
 
         try:
             provider_session = await asyncio.to_thread(adapter.start_run, context)
@@ -793,6 +820,64 @@ class WorkerRuntime:
                     await asyncio.to_thread(adapter.cancel_run, provider_session)
             except Exception:
                 pass
+
+    async def _execute_fake_run(self, context: RunSessionContext) -> None:
+        await self._callbacks.emit_run_started(
+            provider_account_id=context.account.provider_account_id,
+            run_id=context.run_id,
+            worker_run_id=context.worker_run_id,
+            status="starting",
+        )
+        await self._callbacks.emit_run_progress(
+            provider_account_id=context.account.provider_account_id,
+            run_id=context.run_id,
+            worker_run_id=context.worker_run_id,
+            status="running",
+            message="Deterministic test mode is generating a fixture image.",
+        )
+        await asyncio.sleep(0.1)
+
+        context.download_dir.mkdir(parents=True, exist_ok=True)
+        context.final_output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = context.final_output_dir / f"{context.run_id}-fixture.png"
+        output_path.write_bytes(FAKE_PNG_BYTES)
+        output = WorkerOutputPayload(
+            id=str(uuid.uuid4()),
+            storagePath=str(output_path),
+            mimeType="image/png",
+            byteSize=len(FAKE_PNG_BYTES),
+            width=1,
+            height=1,
+            sha256=hashlib.sha256(FAKE_PNG_BYTES).hexdigest(),
+            providerAssetUrl=f"https://chatgpt.com/c/{context.run_id}",
+        )
+
+        await self._callbacks.emit_thread_detected(
+            provider_account_id=context.account.provider_account_id,
+            run_id=context.run_id,
+            worker_run_id=context.worker_run_id,
+            thread_url=f"https://chatgpt.com/c/{context.run_id}",
+            thread_id=context.run_id,
+        )
+        await self._callbacks.emit_output_ready(
+            provider_account_id=context.account.provider_account_id,
+            run_id=context.run_id,
+            worker_run_id=context.worker_run_id,
+            output=output,
+        )
+        await self._callbacks.emit_run_completed(
+            provider_account_id=context.account.provider_account_id,
+            run_id=context.run_id,
+            worker_run_id=context.worker_run_id,
+        )
+
+    def _calculate_next_ready_at(self, queued_run: QueuedRun) -> float:
+        config = queued_run.request.config or {}
+        cooldown_seconds = max(0, int(config.get("cooldownSeconds", 60) or 60))
+        jitter_min_seconds = max(0, int(config.get("jitterMinSeconds", 5) or 5))
+        jitter_max_seconds = max(jitter_min_seconds, int(config.get("jitterMaxSeconds", 20) or 20))
+        jitter_seconds = random.randint(jitter_min_seconds, jitter_max_seconds) if jitter_max_seconds > 0 else 0
+        return asyncio.get_running_loop().time() + cooldown_seconds + jitter_seconds
 
     def _stream_url(self, worker_session_id: str, stream_session_token: str) -> str:
         return f"{self._settings.public_base_url}/browser-sessions/{worker_session_id}/embed?token={stream_session_token}"

@@ -5,12 +5,14 @@
   "description": "SaaS workspace for automation, utility APIs, scraping, and AI-powered tools",
   "workspaces": ["apps/*"],
   "scripts": {
-    "predev": "node scripts/free-dev-ports.mjs 8080 5173",
+    "predev": "node scripts/free-dev-ports.mjs 8080 5173 8091",
+    "predev:e2e": "node scripts/free-dev-ports.mjs 8180 4173 8191",
     "dev": "pnpm run predev && concurrently -k -n api,web -c blue,green \"pnpm run dev:api\" \"pnpm run dev:web\"",
     "dev:all": "pnpm run predev && concurrently -k -n api,web,worker -c blue,green,yellow \"pnpm run dev:api\" \"pnpm run dev:web\" \"pnpm run dev:worker\"",
     "dev:api": "cd apps/api && go run ./cmd/server",
+    "dev:api:e2e": "node scripts/prepare-e2e-db.mjs && pnpm run seed-system && pnpm run dev:api",
     "dev:web": "pnpm --dir apps/web dev",
-    "dev:worker": "cd apps/worker && python -m uvicorn brokestack_worker.main:app --reload --host 127.0.0.1 --port 8091",
+    "dev:worker": "cd apps/worker && uv run uvicorn brokestack_worker.main:app --reload --host 127.0.0.1 --port 8091",
     "db:migrate": "cd apps/api && go run ./cmd/server migrate",
     "seed-system": "cd apps/api && go run ./cmd/server seed-system",
     "healthcheck": "cd apps/api && go run ./cmd/server healthcheck",
@@ -18,6 +20,7 @@
     "build:api": "cd apps/api && go build -o ../../bin/api ./cmd/server",
     "build:web": "pnpm --dir apps/web build",
     "build:worker": "cd apps/worker && python -m compileall brokestack_worker",
+    "test:e2e": "pnpm run predev:e2e && playwright test",
     "lint": "pnpm run lint:web",
     "lint:web": "pnpm --dir apps/web lint",
     "format": "pnpm --dir apps/web format",
@@ -25,6 +28,7 @@
     "sync:production-secrets": "node scripts/sync-production-secrets.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "concurrently": "^9.1.2"
   },
   "engines": {

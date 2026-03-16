@@ -86,6 +86,14 @@ class StartAutomationRunResponse(BaseModel):
     status: str
 
 
+class StartImageJobRequest(StartAutomationRunRequest):
+    pass
+
+
+class StartImageJobResponse(StartAutomationRunResponse):
+    pass
+
+
 class WorkerOutputPayload(BaseModel):
     id: str | None = None
     storage_path: str = Field(alias="storagePath")

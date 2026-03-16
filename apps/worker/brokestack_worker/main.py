@@ -12,6 +12,8 @@ from brokestack_worker.models import (
     RunPreviewResponse,
     StartAutomationRunRequest,
     StartAutomationRunResponse,
+    StartImageJobRequest,
+    StartImageJobResponse,
     StartLoginSessionRequest,
     StartLoginSessionResponse,
     ToolDescriptor,
@@ -63,7 +65,8 @@ async def runs_preview(payload: RunPreviewRequest) -> RunPreviewResponse:
 )
 async def provider_account_login_sessions(payload: StartLoginSessionRequest) -> StartLoginSessionResponse:
     try:
-        return await runtime.start_login_session(payload)
+        response = await runtime.start_login_session(payload)
+        return response.model_dump(by_alias=True)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -77,7 +80,23 @@ async def provider_account_login_sessions(payload: StartLoginSessionRequest) -> 
 )
 async def automation_runs(payload: StartAutomationRunRequest) -> StartAutomationRunResponse:
     try:
-        return await runtime.start_automation_run(payload)
+        response = await runtime.start_automation_run(payload)
+        return response.model_dump(by_alias=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post(
+    "/image-jobs",
+    response_model=StartImageJobResponse,
+    dependencies=[Depends(require_worker_secret)],
+)
+async def image_jobs(payload: StartImageJobRequest) -> StartImageJobResponse:
+    try:
+        response = await runtime.start_image_job(payload)
+        return response.model_dump(by_alias=True)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except RuntimeError as exc:
@@ -96,7 +115,8 @@ async def provider_account_login_session_refresh_stream(
     if payload.worker_session_id != worker_session_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Worker session mismatch")
     try:
-        return await runtime.refresh_login_session_stream(worker_session_id)
+        response = await runtime.refresh_login_session_stream(worker_session_id)
+        return response.model_dump(by_alias=True)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

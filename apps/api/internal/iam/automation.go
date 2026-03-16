@@ -59,16 +59,20 @@ type AutomationConfig struct {
 }
 
 type ProviderAccountRecord struct {
-	ID              string `json:"id"`
-	WorkspaceID     string `json:"workspaceId"`
-	Provider        string `json:"provider"`
-	Label           string `json:"label"`
-	Status          string `json:"status"`
-	ProfileKey      string `json:"profileKey"`
-	LastValidatedAt string `json:"lastValidatedAt,omitempty"`
-	LastError       string `json:"lastError,omitempty"`
-	CreatedAt       string `json:"createdAt"`
-	UpdatedAt       string `json:"updatedAt"`
+	ID               string `json:"id"`
+	WorkspaceID      string `json:"workspaceId"`
+	Provider         string `json:"provider"`
+	Label            string `json:"label"`
+	Status           string `json:"status"`
+	ProfileKey       string `json:"profileKey"`
+	CooldownSeconds  int    `json:"cooldownSeconds"`
+	JitterMinSeconds int    `json:"jitterMinSeconds"`
+	JitterMaxSeconds int    `json:"jitterMaxSeconds"`
+	IsDefaultForAPI  bool   `json:"isDefaultForApi"`
+	LastValidatedAt  string `json:"lastValidatedAt,omitempty"`
+	LastError        string `json:"lastError,omitempty"`
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
 }
 
 type ProviderLoginSessionRecord struct {
@@ -216,14 +220,25 @@ func (s *Service) CreateProviderAccount(ctx context.Context, principal *Principa
 	}
 
 	account := &database.ProviderAccount{
-		ID:          uuid.New(),
-		WorkspaceID: workspaceID,
-		Provider:    provider,
-		Label:       label,
-		Status:      accountStatusPendingLogin,
-		CreatedAt:   time.Now().UTC(),
-		UpdatedAt:   time.Now().UTC(),
+		ID:               uuid.New(),
+		WorkspaceID:      workspaceID,
+		Provider:         provider,
+		Label:            label,
+		Status:           accountStatusPendingLogin,
+		CooldownSeconds:  60,
+		JitterMinSeconds: 5,
+		JitterMaxSeconds: 20,
+		CreatedAt:        time.Now().UTC(),
+		UpdatedAt:        time.Now().UTC(),
 	}
+	existingAccounts, err := s.db.NewSelect().
+		Model((*database.ProviderAccount)(nil)).
+		Where("workspace_id = ?", workspaceID).
+		Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+	account.IsDefaultForAPI = existingAccounts == 0
 	account.ProfileKey = s.ensureProviderProfileKey(ctx, workspaceID, provider, label)
 	if _, err := s.db.NewInsert().Model(account).Exec(ctx); err != nil {
 		return nil, err
@@ -987,8 +1002,40 @@ func (s *Service) handleRunProgressEvent(ctx context.Context, payload WorkerEven
 		return err
 	}
 
-	query := s.db.NewUpdate().
-		Model((*database.AutomationRun)(nil))
+	if job, err := s.findImageJobByID(ctx, runID); err == nil {
+		query := s.db.NewUpdate().
+			Model((*database.ImageJob)(nil))
+		if strings.TrimSpace(payload.Status) != "" {
+			query = query.Set("status = ?", payload.Status)
+		}
+		if strings.TrimSpace(payload.WorkerRunID) != "" {
+			query = query.Set("worker_run_id = ?", payload.WorkerRunID)
+		}
+		if payload.EventType == "run.started" {
+			query = query.Set("started_at = COALESCE(started_at, ?)", time.Now().UTC())
+		}
+		if strings.TrimSpace(payload.Message) != "" {
+			query = query.Set("last_error = ?", payload.Message)
+		} else {
+			query = query.Set("last_error = ?", "")
+		}
+		query = query.Set("updated_at = ?", time.Now().UTC())
+		_, err = query.Where("id = ?", runID).Exec(ctx)
+		if err != nil {
+			return err
+		}
+		_, _ = s.db.NewUpdate().
+			Model((*database.ProviderAccount)(nil)).
+			Set("status = ?", accountStatusBusy).
+			Set("updated_at = ?", time.Now().UTC()).
+			Where("id = ?", job.ProviderAccountID).
+			Exec(ctx)
+		return nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return err
+	}
+
+	query := s.db.NewUpdate().Model((*database.AutomationRun)(nil))
 
 	if strings.TrimSpace(payload.Status) != "" {
 		query = query.Set("status = ?", payload.Status)
@@ -1013,6 +1060,18 @@ func (s *Service) handleRunThreadEvent(ctx context.Context, payload WorkerEventP
 	if err != nil {
 		return err
 	}
+	if _, err := s.findImageJobByID(ctx, runID); err == nil {
+		_, err = s.db.NewUpdate().
+			Model((*database.ImageJob)(nil)).
+			Set("provider_thread_url = ?", payload.ProviderThreadURL).
+			Set("provider_thread_id = ?", payload.ProviderThreadID).
+			Set("updated_at = ?", time.Now().UTC()).
+			Where("id = ?", runID).
+			Exec(ctx)
+		return err
+	} else if !errors.Is(err, ErrNotFound) {
+		return err
+	}
 	_, err = s.db.NewUpdate().
 		Model((*database.AutomationRun)(nil)).
 		Set("provider_thread_url = ?", payload.ProviderThreadURL).
@@ -1028,6 +1087,33 @@ func (s *Service) handleRunOutputReadyEvent(ctx context.Context, payload WorkerE
 	}
 	runID, err := uuid.Parse(payload.RunID)
 	if err != nil {
+		return err
+	}
+	if job, err := s.findImageJobByID(ctx, runID); err == nil {
+		outputID := payload.Output.ID
+		if strings.TrimSpace(outputID) == "" {
+			outputID = uuid.NewString()
+		}
+		parsedOutputID, err := uuid.Parse(outputID)
+		if err != nil {
+			return err
+		}
+		output := &database.ImageOutput{
+			ID:               parsedOutputID,
+			ImageJobID:       job.ID,
+			WorkspaceID:      job.WorkspaceID,
+			StoragePath:      payload.Output.StoragePath,
+			MimeType:         payload.Output.MimeType,
+			ByteSize:         payload.Output.ByteSize,
+			Width:            payload.Output.Width,
+			Height:           payload.Output.Height,
+			SHA256:           payload.Output.SHA256,
+			ProviderAssetURL: payload.Output.ProviderAssetURL,
+			CreatedAt:        time.Now().UTC(),
+		}
+		_, err = s.db.NewInsert().Model(output).Ignore().Exec(ctx)
+		return err
+	} else if !errors.Is(err, ErrNotFound) {
 		return err
 	}
 	run, err := s.findAutomationRunByID(ctx, runID)
@@ -1066,6 +1152,27 @@ func (s *Service) handleRunCompletedEvent(ctx context.Context, payload WorkerEve
 		return err
 	}
 	now := time.Now().UTC()
+	if job, err := s.findImageJobByID(ctx, runID); err == nil {
+		if _, err := s.db.NewUpdate().
+			Model((*database.ImageJob)(nil)).
+			Set("status = ?", runStatusCompleted).
+			Set("completed_at = ?", now).
+			Set("last_error = ?", "").
+			Set("updated_at = ?", now).
+			Where("id = ?", runID).
+			Exec(ctx); err != nil {
+			return err
+		}
+		_, err = s.db.NewUpdate().
+			Model((*database.ProviderAccount)(nil)).
+			Set("status = ?", accountStatusReady).
+			Set("updated_at = ?", now).
+			Where("id = ?", job.ProviderAccountID).
+			Exec(ctx)
+		return err
+	} else if !errors.Is(err, ErrNotFound) {
+		return err
+	}
 	run, err := s.findAutomationRunByID(ctx, runID)
 	if err != nil {
 		return err
@@ -1099,6 +1206,32 @@ func (s *Service) handleRunFailedEvent(ctx context.Context, payload WorkerEventP
 		return err
 	}
 	now := time.Now().UTC()
+	if job, err := s.findImageJobByID(ctx, runID); err == nil {
+		if _, err := s.db.NewUpdate().
+			Model((*database.ImageJob)(nil)).
+			Set("status = ?", runStatusFailed).
+			Set("completed_at = ?", now).
+			Set("last_error = ?", payload.Message).
+			Set("updated_at = ?", now).
+			Where("id = ?", runID).
+			Exec(ctx); err != nil {
+			return err
+		}
+		accountStatus := accountStatusReady
+		if payload.Status == accountStatusNeedsReauth {
+			accountStatus = accountStatusNeedsReauth
+		}
+		_, err = s.db.NewUpdate().
+			Model((*database.ProviderAccount)(nil)).
+			Set("status = ?", accountStatus).
+			Set("last_error = ?", payload.Message).
+			Set("updated_at = ?", now).
+			Where("id = ?", job.ProviderAccountID).
+			Exec(ctx)
+		return err
+	} else if !errors.Is(err, ErrNotFound) {
+		return err
+	}
 	run, err := s.findAutomationRunByID(ctx, runID)
 	if err != nil {
 		return err
@@ -1242,15 +1375,19 @@ func (s *Service) automationRecordFromModel(ctx context.Context, model database.
 
 func providerAccountRecordFromModel(model database.ProviderAccount) ProviderAccountRecord {
 	record := ProviderAccountRecord{
-		ID:          model.ID.String(),
-		WorkspaceID: model.WorkspaceID.String(),
-		Provider:    model.Provider,
-		Label:       model.Label,
-		Status:      model.Status,
-		ProfileKey:  model.ProfileKey,
-		LastError:   model.LastError,
-		CreatedAt:   model.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   model.UpdatedAt.Format(time.RFC3339),
+		ID:               model.ID.String(),
+		WorkspaceID:      model.WorkspaceID.String(),
+		Provider:         model.Provider,
+		Label:            model.Label,
+		Status:           model.Status,
+		ProfileKey:       model.ProfileKey,
+		CooldownSeconds:  model.CooldownSeconds,
+		JitterMinSeconds: model.JitterMinSeconds,
+		JitterMaxSeconds: model.JitterMaxSeconds,
+		IsDefaultForAPI:  model.IsDefaultForAPI,
+		LastError:        model.LastError,
+		CreatedAt:        model.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        model.UpdatedAt.Format(time.RFC3339),
 	}
 	if model.LastValidatedAt != nil {
 		record.LastValidatedAt = model.LastValidatedAt.Format(time.RFC3339)

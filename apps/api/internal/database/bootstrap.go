@@ -42,6 +42,10 @@ var permissionSeeds = []permissionSeed{
 	{Code: "analytics.export", Label: "Export analytics", Scope: "workspace", Description: "Export analytics data"},
 	{Code: "automations.view", Label: "View automations", Scope: "workspace", Description: "View automations"},
 	{Code: "automations.manage", Label: "Manage automations", Scope: "workspace", Description: "Create and edit automations"},
+	{Code: "images.view", Label: "View images", Scope: "workspace", Description: "View generated images and image jobs"},
+	{Code: "images.manage", Label: "Manage images", Scope: "workspace", Description: "Generate images and manage image queues"},
+	{Code: "workspace.api.view", Label: "View workspace API", Scope: "workspace", Description: "View workspace API keys and docs"},
+	{Code: "workspace.api.manage", Label: "Manage workspace API", Scope: "workspace", Description: "Manage workspace API keys and quotas"},
 	{Code: "platform.users.view", Label: "View platform users", Scope: "platform", Description: "View platform user directory"},
 	{Code: "platform.users.manage", Label: "Manage platform users", Scope: "platform", Description: "Update platform users"},
 	{Code: "platform.workspaces.view", Label: "View workspaces", Scope: "platform", Description: "View workspaces"},
@@ -68,6 +72,8 @@ var roleSeeds = []roleSeed{
 			"content.assets.view", "content.assets.manage",
 			"analytics.view", "analytics.export",
 			"automations.view", "automations.manage",
+			"images.view", "images.manage",
+			"workspace.api.view", "workspace.api.manage",
 		},
 	},
 	{
@@ -82,6 +88,8 @@ var roleSeeds = []roleSeed{
 			"content.assets.view", "content.assets.manage",
 			"analytics.view", "analytics.export",
 			"automations.view", "automations.manage",
+			"images.view", "images.manage",
+			"workspace.api.view", "workspace.api.manage",
 		},
 	},
 	{
@@ -95,6 +103,8 @@ var roleSeeds = []roleSeed{
 			"content.assets.view", "content.assets.manage",
 			"analytics.view",
 			"automations.view", "automations.manage",
+			"images.view", "images.manage",
+			"workspace.api.view", "workspace.api.manage",
 		},
 	},
 	{
@@ -106,6 +116,8 @@ var roleSeeds = []roleSeed{
 			"content.assets.view",
 			"analytics.view", "analytics.export",
 			"automations.view",
+			"images.view",
+			"workspace.api.view",
 		},
 	},
 	{

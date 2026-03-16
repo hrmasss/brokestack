@@ -31,6 +31,10 @@ servers:
 tags:
   - name: Health
     description: Health check and status endpoints
+  - name: Images
+    description: Browser-backed image generation and image history
+  - name: Workspace API
+    description: Workspace API keys, quotas, and docs
   - name: Auth
     description: Authentication and authorization
   - name: Workspaces
@@ -70,6 +74,185 @@ paths:
                   goroutines: 8
                 checks:
                   api: "ok"
+  /api/v1/images:
+    post:
+      operationId: createImageJob
+      summary: Create image job
+      description: Queue a single image generation job using a workspace API key.
+      tags:
+        - Images
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateImageJobRequest'
+      responses:
+        '201':
+          description: Image job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageJob'
+        '4XX':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/image-batches:
+    post:
+      operationId: createImageBatch
+      summary: Create image batch
+      description: Queue a grouped batch request that fans out into individually scheduled image jobs.
+      tags:
+        - Images
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateImageBatchRequest'
+      responses:
+        '201':
+          description: Image batch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageBatchResult'
+        '4XX':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/images/{id}:
+    get:
+      operationId: getImageJob
+      summary: Get image job
+      description: Fetch the current state of one image job created through the API or dashboard.
+      tags:
+        - Images
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Image job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageJob'
+        '4XX':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/images/{id}/outputs:
+    get:
+      operationId: listImageOutputs
+      summary: List image outputs
+      description: List the downloaded outputs for a completed image job.
+      tags:
+        - Images
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Image outputs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImageOutput'
+        '4XX':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/workspaces/{workspaceId}/api-keys:
+    get:
+      operationId: listWorkspaceApiKeys
+      summary: List workspace API keys
+      tags:
+        - Workspace API
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Workspace API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WorkspaceApiKey'
+    post:
+      operationId: createWorkspaceApiKey
+      summary: Create workspace API key
+      tags:
+        - Workspace API
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceApiKeyRequest'
+      responses:
+        '201':
+          description: Workspace API key created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedWorkspaceApiKey'
+        '4XX':
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   securitySchemes:
@@ -147,3 +330,197 @@ components:
           type: object
           additionalProperties: true
           description: Additional error details
+
+    CreateImageJobRequest:
+      type: object
+      required:
+        - promptText
+      properties:
+        title:
+          type: string
+        promptText:
+          type: string
+        aspectRatio:
+          type: string
+
+    CreateImageBatchRequest:
+      type: object
+      required:
+        - promptTemplate
+        - values
+      properties:
+        title:
+          type: string
+        promptTemplate:
+          type: string
+        placeholderName:
+          type: string
+        aspectRatio:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
+
+    ImageJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        providerAccountId:
+          type: string
+          format: uuid
+        provider:
+          type: string
+        providerLabel:
+          type: string
+        batchId:
+          type: string
+          format: uuid
+        apiKeyId:
+          type: string
+          format: uuid
+        source:
+          type: string
+          enum: [web, api]
+        requestType:
+          type: string
+          enum: [single, batch]
+        title:
+          type: string
+        promptText:
+          type: string
+        aspectRatio:
+          type: string
+        status:
+          type: string
+        queuedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        lastError:
+          type: string
+        outputCount:
+          type: integer
+
+    ImageOutput:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        imageJobId:
+          type: string
+          format: uuid
+        mimeType:
+          type: string
+        byteSize:
+          type: integer
+        width:
+          type: integer
+        height:
+          type: integer
+        contentUrl:
+          type: string
+
+    ImageBatch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        providerAccountId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        promptTemplate:
+          type: string
+        placeholderName:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+
+    ImageBatchResult:
+      type: object
+      properties:
+        batch:
+          $ref: '#/components/schemas/ImageBatch'
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageJob'
+
+    WorkspaceApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        keyPrefix:
+          type: string
+        status:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        requestsPerMinute:
+          type: integer
+        dailyImageQuota:
+          type: integer
+        lastUsedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateWorkspaceApiKeyRequest:
+      type: object
+      required:
+        - name
+        - scopes
+        - requestsPerMinute
+        - dailyImageQuota
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        requestsPerMinute:
+          type: integer
+        dailyImageQuota:
+          type: integer
+
+    CreatedWorkspaceApiKey:
+      type: object
+      properties:
+        apiKey:
+          $ref: '#/components/schemas/WorkspaceApiKey'
+        secret:
+          type: string

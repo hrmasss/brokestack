@@ -143,6 +143,58 @@ function createAssistantSuggestions(
 		];
 	}
 
+	if (pathname.startsWith("/dashboard/images")) {
+		return [
+			{
+				id: "images-priority",
+				label: "Queue priorities",
+				detail: "Find which image jobs need intervention first.",
+				prompt:
+					"From the Images page, which image jobs or connections need attention first?",
+			},
+			{
+				id: "images-brief",
+				label: "Image ops brief",
+				detail: "Turn job history into a short team update.",
+				prompt:
+					"Draft a concise update about the current image queue, recent failures, and what to do next.",
+			},
+			{
+				id: "images-risks",
+				label: "Generation risks",
+				detail: "Surface rate limit or connection issues quickly.",
+				prompt:
+					"Summarize the main generation risks visible from the Images view, including API and web sources.",
+			},
+		];
+	}
+
+	if (pathname.startsWith("/dashboard/api")) {
+		return [
+			{
+				id: "api-readiness",
+				label: "API readiness",
+				detail: "Check whether the workspace API setup looks healthy.",
+				prompt:
+					"From the API page, assess whether our keys, quotas, and image API setup look production ready.",
+			},
+			{
+				id: "api-usage",
+				label: "API usage readout",
+				detail: "Explain what the API activity suggests.",
+				prompt:
+					"Summarize what the current API page suggests about image API usage and operational risks.",
+			},
+			{
+				id: "api-followups",
+				label: "Integration follow-ups",
+				detail: "Translate the page into next steps.",
+				prompt:
+					"List the next three follow-ups I should make based on the current API workspace setup.",
+			},
+		];
+	}
+
 	if (pathname.startsWith("/dashboard/posts")) {
 		return [
 			{

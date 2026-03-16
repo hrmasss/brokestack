@@ -51,6 +51,7 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
             run_timeout_seconds=10,
             login_stable_polls=1,
             dom_poll_interval_seconds=0.5,
+            test_mode=False,
         )
         adapter = ChatGPTProviderAdapter(settings)
 
@@ -85,6 +86,7 @@ class ChatGPTAdapterFileTests(unittest.TestCase):
             run_timeout_seconds=10,
             login_stable_polls=1,
             dom_poll_interval_seconds=0.5,
+            test_mode=False,
         )
         adapter = ChatGPTProviderAdapter(settings)
 

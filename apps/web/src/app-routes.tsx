@@ -59,6 +59,41 @@ const DashboardAutomations = lazy(async () =>
 		default: module.DashboardAutomations,
 	})),
 );
+const DashboardImages = lazy(async () =>
+	import("@/pages/dashboard/images").then((module) => ({
+		default: module.DashboardImages,
+	})),
+);
+const DashboardImageNew = lazy(async () =>
+	import("@/pages/dashboard/image-new").then((module) => ({
+		default: module.DashboardImageNew,
+	})),
+);
+const DashboardImageBatch = lazy(async () =>
+	import("@/pages/dashboard/image-batch").then((module) => ({
+		default: module.DashboardImageBatch,
+	})),
+);
+const DashboardImageConnections = lazy(async () =>
+	import("@/pages/dashboard/image-connections").then((module) => ({
+		default: module.DashboardImageConnections,
+	})),
+);
+const DashboardImageDetail = lazy(async () =>
+	import("@/pages/dashboard/image-detail").then((module) => ({
+		default: module.DashboardImageDetail,
+	})),
+);
+const DashboardApi = lazy(async () =>
+	import("@/pages/dashboard/api").then((module) => ({
+		default: module.DashboardApi,
+	})),
+);
+const DashboardApiDocs = lazy(async () =>
+	import("@/pages/dashboard/api-docs").then((module) => ({
+		default: module.DashboardApiDocs,
+	})),
+);
 const DashboardLibrary = lazy(async () =>
 	import("@/pages/dashboard/library").then((module) => ({
 		default: module.DashboardLibrary,
@@ -222,6 +257,13 @@ export function AppRoutes() {
 						<Route path="posts/new" element={<DashboardNewPost />} />
 						<Route path="calendar" element={<DashboardCalendar />} />
 						<Route path="analytics" element={<DashboardAnalytics />} />
+						<Route path="images" element={<DashboardImages />} />
+						<Route path="images/new" element={<DashboardImageNew />} />
+						<Route path="images/batch" element={<DashboardImageBatch />} />
+						<Route path="images/connections" element={<DashboardImageConnections />} />
+						<Route path="images/:id" element={<DashboardImageDetail />} />
+						<Route path="api" element={<DashboardApi />} />
+						<Route path="api/docs" element={<DashboardApiDocs />} />
 						<Route path="automations" element={<DashboardAutomations />} />
 						<Route path="library" element={<DashboardLibrary />} />
 						<Route path="team" element={<DashboardTeam />} />
